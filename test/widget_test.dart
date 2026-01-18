@@ -10,12 +10,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:openstash/api/api_client.dart';
 import 'package:openstash/app/app_shell.dart';
 
 void main() {
   testWidgets('Bottom nav exists and tab switching preserves state', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+
     final mockClient = MockClient((request) async {
       if (request.url.path == '/api/summaries') {
         final items = List.generate(100, (i) {

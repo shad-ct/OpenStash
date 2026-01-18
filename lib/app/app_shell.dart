@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../repositories/summary_repository.dart';
 import '../screens/explore_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/library_screen.dart';
@@ -10,10 +11,12 @@ class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
     this.apiClient,
+    this.repository,
     this.testMode = false,
   });
 
   final ApiClient? apiClient;
+  final SummaryRepository? repository;
   final bool testMode;
 
   @override
@@ -24,11 +27,20 @@ class _AppShellState extends State<AppShell> {
   int _index = 0;
   final PageStorageBucket _bucket = PageStorageBucket();
 
+  late final SummaryRepository _repo =
+      widget.repository ?? SummaryRepository(api: widget.apiClient ?? ApiClient());
+
   late final List<Widget> _screens = [
-    HomeScreen(apiClient: widget.apiClient, testMode: widget.testMode),
-    ExploreScreen(apiClient: widget.apiClient),
+    HomeScreen(apiClient: widget.apiClient, repository: _repo, testMode: widget.testMode),
+    ExploreScreen(apiClient: widget.apiClient, repository: _repo),
     const LibraryScreen(),
   ];
+
+  @override
+  void dispose() {
+    _repo.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'models/summary.dart';
@@ -8,7 +7,7 @@ import 'models/summary.dart';
 class ApiClient {
   ApiClient({
     http.Client? client,
-    this.baseUrl = 'https://btlearn.up.railway.app',
+    this.baseUrl = 'https://openstashbackend.up.railway.app',
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
@@ -27,12 +26,8 @@ class ApiClient {
       throw ApiException('GET /api/summaries failed (${res.statusCode})');
     }
 
-    if (kIsWeb) {
-      final json = jsonDecode(res.body) as Map<String, Object?>;
-      return SummariesPage.fromJson(json);
-    }
-
-    return compute(_decodeSummariesPage, res.body);
+    final json = jsonDecode(res.body) as Map<String, Object?>;
+    return SummariesPage.fromJson(json);
   }
 
   Future<SummaryItem> getSummaryById(String id, {bool includeRaw = false}) async {
@@ -45,23 +40,9 @@ class ApiClient {
       throw ApiException('GET /api/summaries/:id failed (${res.statusCode})');
     }
 
-    if (kIsWeb) {
-      final json = jsonDecode(res.body) as Map<String, Object?>;
-      return SummaryItem.fromJson(json);
-    }
-
-    return compute(_decodeSummaryItem, res.body);
+    final json = jsonDecode(res.body) as Map<String, Object?>;
+    return SummaryItem.fromJson(json);
   }
-}
-
-SummariesPage _decodeSummariesPage(String body) {
-  final json = jsonDecode(body) as Map<String, Object?>;
-  return SummariesPage.fromJson(json);
-}
-
-SummaryItem _decodeSummaryItem(String body) {
-  final json = jsonDecode(body) as Map<String, Object?>;
-  return SummaryItem.fromJson(json);
 }
 
 class ApiException implements Exception {

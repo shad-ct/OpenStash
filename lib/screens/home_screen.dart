@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
@@ -8,16 +10,19 @@ import '../widgets/skeleton.dart';
 import '../widgets/streak_badge.dart';
 import '../api/api_client.dart';
 import '../api/models/summary.dart';
+import '../repositories/summary_repository.dart';
 import 'article_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     this.apiClient,
+    this.repository,
     this.testMode = false,
   });
 
   final ApiClient? apiClient;
+  final SummaryRepository? repository;
   final bool testMode;
 
   @override
@@ -26,10 +31,12 @@ class HomeScreen extends StatefulWidget {
 
 enum _HomeUiState { loading, empty, content }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _streakCount = 0;
 
   late final ApiClient _api = widget.apiClient ?? ApiClient();
+  late final SummaryRepository _repo = widget.repository ?? SummaryRepository(api: _api);
+  Timer? _refreshTimer;
 
   _HomeUiState _state = _HomeUiState.loading;
   bool _offline = false;
@@ -100,6 +107,29 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
+
+    if (!widget.testMode) {
+      WidgetsBinding.instance.addObserver(this);
+      _scheduleNextRefresh();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!widget.testMode) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (widget.testMode) return;
+    if (state == AppLifecycleState.resumed) {
+      _attemptRefreshIfDue();
+      _scheduleNextRefresh();
+    }
   }
 
   Future<void> _load() async {
@@ -121,56 +151,63 @@ class _HomeScreenState extends State<HomeScreen> {
       _offline = false;
     });
 
+    final cached = await _repo.loadFeedFromCache();
+    if (!mounted) return;
+
+    setState(() {
+      _items = List<SummaryItem>.unmodifiable(cached);
+      _streakCount = _items.length;
+      _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
+      // Default to showing the "saved content" banner unless we successfully refresh.
+      _offline = true;
+    });
+
+    await _attemptRefreshIfDue();
+  }
+
+  Future<void> _attemptRefreshIfDue() async {
+    if (widget.testMode) return;
+
     try {
-      const limit = 100;
-      const maxPages = 50;
-
-      var pageNum = 1;
-      var hasNext = true;
-
-      final seenIds = <String>{};
-      final all = <SummaryItem>[];
-
-      while (hasNext && pageNum <= maxPages) {
-        final page = await _api.getSummaries(page: pageNum, limit: limit);
-
-        for (final item in page.items) {
-          if (item.id.isEmpty) continue;
-          if (seenIds.add(item.id)) all.add(item);
-        }
-
-        hasNext = page.pageInfo.hasNext && page.items.isNotEmpty;
-        pageNum++;
-
+      final decision = await _repo.canRefreshNow();
+      if (!decision.allowed) {
         if (!mounted) return;
-        final now = DateTime.now();
-        final shouldUpdateNow =
-            all.isNotEmpty && (now.difference(_lastUiUpdate).inMilliseconds >= 220 || pageNum == 2);
-        if (shouldUpdateNow) {
-          _lastUiUpdate = now;
-          setState(() {
-            _items = List<SummaryItem>.unmodifiable(all);
-            _streakCount = _items.length;
-            _state = _items.isEmpty ? _HomeUiState.loading : _HomeUiState.content;
-            _offline = false;
-          });
-        }
+        setState(() {
+          _offline = true;
+        });
+        return;
       }
 
+      final refreshed = await _repo.refreshFeedIfDue();
       if (!mounted) return;
+
       setState(() {
-        _items = List<SummaryItem>.unmodifiable(all);
+        _items = List<SummaryItem>.unmodifiable(refreshed);
         _streakCount = _items.length;
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
+        _offline = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        // Keep showing cached data.
         _offline = true;
         _streakCount = _items.length;
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
       });
     }
+  }
+
+  void _scheduleNextRefresh() {
+    _refreshTimer?.cancel();
+    final nextAt = _repo.nextScheduledRefresh();
+    final delay = nextAt.difference(DateTime.now());
+    if (delay.isNegative) return;
+
+    _refreshTimer = Timer(delay, () {
+      _attemptRefreshIfDue();
+      _scheduleNextRefresh();
+    });
   }
 }
 

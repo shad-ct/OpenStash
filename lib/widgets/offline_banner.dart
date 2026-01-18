@@ -24,11 +24,11 @@ class OfflineBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.wifi_off_rounded, size: 18, color: color),
+          Icon(Icons.schedule_rounded, size: 18, color: color),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'You are offline. Showing cached content.',
+              'Showing saved content. Refresh happens once daily at 9:00 AM.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w500,

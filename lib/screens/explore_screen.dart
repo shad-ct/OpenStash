@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../api/models/summary.dart';
+import '../repositories/summary_repository.dart';
 import '../theme/tokens.dart';
 import '../widgets/search_bar_widget.dart';
 import '../widgets/topic_tile.dart';
@@ -13,9 +14,11 @@ class ExploreScreen extends StatefulWidget {
   const ExploreScreen({
     super.key,
     this.apiClient,
+    this.repository,
   });
 
   final ApiClient? apiClient;
+  final SummaryRepository? repository;
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -35,6 +38,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }).toList();
   }
   late final ApiClient _api = widget.apiClient ?? ApiClient();
+  late final SummaryRepository _repo = widget.repository ?? SummaryRepository(api: _api);
 
   _ExploreUiState _state = _ExploreUiState.loading;
   List<SummaryItem> _allArticles = [];
@@ -50,12 +54,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
     setState(() => _state = _ExploreUiState.loading);
 
     try {
-      final page = await _api.getSummaries(page: 1, limit: 50);
+      final cached = await _repo.loadFeedFromCache();
       if (!mounted) return;
       setState(() {
-        _allArticles = page.items;
+        _allArticles = cached;
         _filteredArticles = [];
         _state = _mainTopics.isEmpty ? _ExploreUiState.empty : _ExploreUiState.content;
+      });
+
+      // If the daily refresh is due (>= 9 AM and not done today), refresh once.
+      final decision = await _repo.canRefreshNow();
+      if (!decision.allowed) return;
+      final refreshed = await _repo.refreshFeedIfDue();
+      if (!mounted) return;
+      setState(() {
+        _allArticles = refreshed;
+        // Keep current selection, just recompute the filtered list.
+        _filteredArticles = _filterArticlesByMainTopic(_selectedMainTopic);
       });
     } catch (_) {
       if (!mounted) return;

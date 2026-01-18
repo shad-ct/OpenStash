@@ -16,6 +16,13 @@ class SummariesPage {
       pageInfo: PageInfo.fromJson(pageInfoJson),
     );
   }
+
+  Map<String, Object?> toJson() {
+    return {
+      'items': items.map((e) => e.toJson()).toList(growable: false),
+      'pageInfo': pageInfo.toJson(),
+    };
+  }
 }
 
 class PageInfo {
@@ -38,6 +45,15 @@ class PageInfo {
       total: (json['total'] as num?)?.toInt() ?? 0,
       hasNext: (json['hasNext'] as bool?) ?? false,
     );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'page': page,
+      'limit': limit,
+      'total': total,
+      'hasNext': hasNext,
+    };
   }
 }
 
@@ -92,6 +108,30 @@ class SummaryItem {
           .toList(growable: false),
     );
   }
+
+  Map<String, Object?> toJson() {
+    return {
+      '_id': id,
+      'title': title,
+      'author': author,
+      'url': url,
+      'reads': reads,
+      'publishedAt': publishedAt?.toIso8601String(),
+      'ingestedAt': ingestedAt?.toIso8601String(),
+      'feed': {
+        'title': feedTitle,
+      },
+      'source': {
+        'domain': sourceDomain,
+      },
+      'content': {
+        'imageUrl': imageUrl,
+      },
+      'summary': {
+        'points': points.map((e) => e.toJson()).toList(growable: false),
+      },
+    };
+  }
 }
 
 class SummaryPoint {
@@ -113,6 +153,14 @@ class SummaryPoint {
           .toList(growable: false),
       paragraph: json['paragraph'] as String?,
     );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'heading': heading,
+      'bullets': bullets,
+      'paragraph': paragraph,
+    };
   }
 }
 
