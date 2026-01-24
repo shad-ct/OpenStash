@@ -27,15 +27,202 @@ class ExploreScreen extends StatefulWidget {
 enum _ExploreUiState { loading, empty, content }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  String? _selectedMainTopic;
+  String? _selectedGroup;
 
-  List<SummaryItem> _filterArticlesByMainTopic(String? mainTopic) {
-    if (mainTopic == null) return [];
-    final subtopics = _subTopics[mainTopic] ?? [];
+  // Map categories to broader groups
+  static const _categoryGroups = {
+    'Science & Technology': [
+      'Acoustics', 'Aerospace Engineering', 'Artificial Intelligence', 'Astronomy', 
+      'Automation', 'Biotechnology', 'Blockchain', 'Cloud Computing', 'Computer Vision',
+      'Cryptography', 'Cybersecurity', 'Data Science', 'Electrical Engineering',
+      'Game Development', 'Genetics', 'Geology', 'Hacking', 'Information Technology',
+      'Internet of Things (IoT)', 'Machine Learning', 'Nanotechnology', 'Neuroscience',
+      'Quantum Mechanics', 'Robotics', 'Software Engineering', 'Space Exploration',
+      'Virtual Reality (VR)', 'Web Development',
+    ],
+    'Humanities & Social Sciences': [
+      'Anthropology', 'Archaeology', 'Cognitive Science', 'Criminology', 'Geography',
+      'History (Ancient, Medieval, Modern)', 'International Relations', 
+      'Law (Constitutional, Corporate, Criminal)', 'Linguistics', 'Philosophy',
+      'Political Science', 'Psychology (Clinical, Social, Behavioral)', 'Religious Studies', 'Sociology',
+    ],
+    'Business & Economics': [
+      'Accounting', 'Advertising', 'Behavioral Economics', 'Branding', 'Business Ethics',
+      'Corporate Governance', 'Cryptocurrency', 'Digital Marketing', 'E-commerce',
+      'Entrepreneurship', 'Finance (Personal, Corporate)', 'Human Resources',
+      'Industrial Relations', 'Insurance', 'International Trade', 'Investing',
+      'Logistics', 'Macroeconomics', 'Management', 'Microeconomics', 'Operations Management',
+      'Project Management', 'Real Estate', 'Sales', 'Stock Market', 'Supply Chain Management',
+      'Taxation', 'Venture Capital',
+    ],
+    'Arts, Culture & Media': [
+      'Animation', 'Architecture', 'Art History', 'Calligraphy', 'Cinematography',
+      'Creative Writing', 'Culinary Arts', 'Dance', 'Design (Graphic, Industrial, Interior)',
+      'Fashion', 'Film Studies', 'Fine Arts', 'Journalism', 'Literature', 'Music Theory',
+      'Performing Arts', 'Photography', 'Poetry', 'Pop Culture', 'Publishing', 'Sculpture',
+      'Stand-up Comedy', 'Television', 'Textile Design', 'Theater', 'Video Games', 'Visual Arts',
+    ],
+    'Health, Lifestyle & Sports': [
+      'Alternative Medicine', 'Athletic Training', 'Biohacking', 'Dental Hygiene',
+      'Dermatology', 'Dietetics', 'Emergency Medicine', 'Ergonomics', 'Fitness',
+      'Gastronomy', 'Geriatrics', 'Holistic Health', 'Kinesiology', 'Meditation',
+      'Mental Health', 'Minimalism', 'Nursing', 'Nutrition', 'Occupational Therapy',
+      'Parenting', 'Pediatrics', 'Personal Development', 'Physical Therapy', 'Productivity',
+      'Psychiatry', 'Public Health', 'Sports Management', 'Sports Psychology', 'Sports Science',
+      'Survivalism', 'Travel & Tourism', 'Veterinary Medicine', 'Wellness', 'Yoga',
+    ],
+    'Niche & Miscellaneous': [
+      'Astrology', 'Aviation', 'Bibliophilia', 'Carpentry', 'Chess',
+      'Collecting (Philately, Numismatics)', 'Conspiracy Theories', 'Cryptozoology',
+      'DIY & Making', 'Esotericism', 'Etiquette', 'Futurism', 'Gardening', 'Genealogy',
+      'Horticulture', 'Magic (Illusion)', 'Maritime Studies', 'Military Strategy',
+      'Numismatics', 'Occultism', 'Parapsychology', 'Philanthropy', 'Survival Skills',
+      'Transhumanism', 'True Crime', 'Vexillology (Flags)',
+    ],
+  };
+
+  List<SummaryItem> _filterArticlesByGroup(String? group) {
+    if (group == null) return [];
+    final categoriesInGroup = _categoryGroups[group] ?? [];
     return _allArticles.where((item) {
-      final text = ((item.feedTitle ?? '') + ' ' + item.title).toLowerCase();
-      return subtopics.any((sub) => text.contains(sub.toLowerCase()));
+      return item.categories.any((cat) => categoriesInGroup.contains(cat));
     }).toList();
+  }
+
+  List<String> _extractUniqueCategories(List<SummaryItem> articles) {
+    final categories = <String>{};
+    for (final article in articles) {
+      categories.addAll(article.categories);
+    }
+    return categories.toList()..sort();
+  }
+
+  IconData _getCategoryIcon(String category) {
+    const categoryIcons = {
+      // Science & Technology
+      'Acoustics': Icons.volume_up,
+      'Aerospace Engineering': Icons.airplanemode_active,
+      'Artificial Intelligence': Icons.smart_toy,
+      'Astronomy': Icons.star,
+      'Automation': Icons.precision_manufacturing,
+      'Biotechnology': Icons.biotech,
+      'Blockchain': Icons.link,
+      'Cloud Computing': Icons.cloud,
+      'Computer Vision': Icons.visibility,
+      'Cryptography': Icons.lock,
+      'Cybersecurity': Icons.security,
+      'Data Science': Icons.analytics,
+      'Electrical Engineering': Icons.electrical_services,
+      'Game Development': Icons.games,
+      'Genetics': Icons.science,
+      'Geology': Icons.terrain,
+      'Hacking': Icons.bug_report,
+      'Information Technology': Icons.computer,
+      'Internet of Things (IoT)': Icons.router,
+      'Machine Learning': Icons.psychology,
+      'Nanotechnology': Icons.zoom_in,
+      'Neuroscience': Icons.psychology,
+      'Quantum Mechanics': Icons.blur_on,
+      'Robotics': Icons.precision_manufacturing,
+      'Software Engineering': Icons.code,
+      'Space Exploration': Icons.rocket,
+      'Virtual Reality (VR)': Icons.videogame_asset,
+      'Web Development': Icons.language,
+      
+      // Humanities & Social Sciences
+      'Anthropology': Icons.people,
+      'Archaeology': Icons.history,
+      'Cognitive Science': Icons.lightbulb,
+      'Criminology': Icons.gavel,
+      'Geography': Icons.map,
+      'History (Ancient, Medieval, Modern)': Icons.history,
+      'International Relations': Icons.public,
+      'Law (Constitutional, Corporate, Criminal)': Icons.balance,
+      'Linguistics': Icons.language,
+      'Philosophy': Icons.school,
+      'Political Science': Icons.how_to_vote,
+      'Psychology (Clinical, Social, Behavioral)': Icons.psychology,
+      'Religious Studies': Icons.church,
+      'Sociology': Icons.group,
+      
+      // Business & Economics
+      'Accounting': Icons.calculate,
+      'Advertising': Icons.campaign,
+      'Branding': Icons.flag,
+      'Business Ethics': Icons.handshake,
+      'Cryptocurrency': Icons.currency_bitcoin,
+      'Digital Marketing': Icons.trending_up,
+      'E-commerce': Icons.shopping_cart,
+      'Entrepreneurship': Icons.lightbulb,
+      'Finance (Personal, Corporate)': Icons.money,
+      'Human Resources': Icons.person_add,
+      'Investing': Icons.trending_up,
+      'Management': Icons.assessment,
+      'Real Estate': Icons.home,
+      'Stock Market': Icons.show_chart,
+      'Supply Chain Management': Icons.local_shipping,
+      
+      // Arts, Culture & Media
+      'Animation': Icons.animation,
+      'Architecture': Icons.domain,
+      'Art History': Icons.palette,
+      'Cinematography': Icons.videocam,
+      'Creative Writing': Icons.edit,
+      'Culinary Arts': Icons.restaurant,
+      'Dance': Icons.directions_walk,
+      'Design (Graphic, Industrial, Interior)': Icons.brush,
+      'Fashion': Icons.checkroom,
+      'Film Studies': Icons.movie,
+      'Fine Arts': Icons.art_track,
+      'Journalism': Icons.newspaper,
+      'Literature': Icons.library_books,
+      'Music Theory': Icons.music_note,
+      'Photography': Icons.camera_alt,
+      'Poetry': Icons.edit_note,
+      'Theater': Icons.theaters,
+      'Visual Arts': Icons.palette,
+      
+      // Health, Lifestyle & Sports
+      'Athletic Training': Icons.fitness_center,
+      'Dental Hygiene': Icons.health_and_safety,
+      'Dermatology': Icons.favorite,
+      'Dietetics': Icons.restaurant_menu,
+      'Emergency Medicine': Icons.local_hospital,
+      'Fitness': Icons.fitness_center,
+      'Geriatrics': Icons.elderly,
+      'Mental Health': Icons.mood,
+      'Nursing': Icons.local_hospital,
+      'Nutrition': Icons.apple,
+      'Parenting': Icons.family_restroom,
+      'Pediatrics': Icons.child_care,
+      'Personal Development': Icons.trending_up,
+      'Physical Therapy': Icons.accessibility,
+      'Psychiatry': Icons.psychology,
+      'Public Health': Icons.health_and_safety,
+      'Sports Management': Icons.sports,
+      'Sports Psychology': Icons.sports_handball,
+      'Sports Science': Icons.sports,
+      'Travel & Tourism': Icons.flight,
+      'Veterinary Medicine': Icons.pets,
+      'Wellness': Icons.spa,
+      'Yoga': Icons.self_improvement,
+      
+      // Niche & Miscellaneous
+      'Aviation': Icons.airplanemode_active,
+      'Chess': Icons.sports_esports,
+      'DIY & Making': Icons.build,
+      'Futurism': Icons.rocket,
+      'Gardening': Icons.grass,
+      'Horticulture': Icons.grass,
+      'Magic (Illusion)': Icons.auto_awesome,
+      'Military Strategy': Icons.security,
+      'Occultism': Icons.dark_mode,
+      'Survival Skills': Icons.emergency,
+      'Transhumanism': Icons.upgrade,
+      'True Crime': Icons.shield,
+    };
+    
+    return categoryIcons[category] ?? Icons.local_offer;
   }
   late final ApiClient _api = widget.apiClient ?? ApiClient();
   late final SummaryRepository _repo = widget.repository ?? SummaryRepository(api: _api);
@@ -43,6 +230,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   _ExploreUiState _state = _ExploreUiState.loading;
   List<SummaryItem> _allArticles = [];
   List<SummaryItem> _filteredArticles = [];
+  List<String> _availableCategories = [];
 
   @override
   void initState() {
@@ -56,10 +244,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     try {
       final cached = await _repo.loadFeedFromCache();
       if (!mounted) return;
+      final categories = _extractUniqueCategories(cached);
       setState(() {
         _allArticles = cached;
         _filteredArticles = [];
-        _state = _mainTopics.isEmpty ? _ExploreUiState.empty : _ExploreUiState.content;
+        _availableCategories = categories;
+        _state = categories.isEmpty ? _ExploreUiState.empty : _ExploreUiState.content;
       });
 
       // If the daily refresh is due (>= 9 AM and not done today), refresh once.
@@ -67,10 +257,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       if (!decision.allowed) return;
       final refreshed = await _repo.refreshFeedIfDue();
       if (!mounted) return;
+      final refreshedCategories = _extractUniqueCategories(refreshed);
       setState(() {
         _allArticles = refreshed;
+        _availableCategories = refreshedCategories;
         // Keep current selection, just recompute the filtered list.
-        _filteredArticles = _filterArticlesByMainTopic(_selectedMainTopic);
+        _filteredArticles = _filterArticlesByGroup(_selectedGroup);
       });
     } catch (_) {
       if (!mounted) return;
@@ -87,6 +279,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
       SliverToBoxAdapter(
         child: SearchBarWidget(
           onTap: () {
+            if (_selectedGroup != null) {
+              setState(() {
+                _selectedGroup = null;
+              });
+            }
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Search (coming soon)')),
             );
@@ -94,16 +291,36 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: AppTokens.p16)),
-      SliverToBoxAdapter(
-        child: Text(
-          _selectedMainTopic == null
-              ? 'Explore by main topic'
-              : 'Select a subtopic in $_selectedMainTopic',
-          style: Theme.of(context).textTheme.titleMedium,
+      
+      // Show group selection or articles
+      if (_selectedGroup == null)
+        SliverToBoxAdapter(
+          child: Text(
+            'Explore by category',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        )
+      else
+        SliverToBoxAdapter(
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  setState(() {
+                    _selectedGroup = null;
+                  });
+                },
+              ),
+              Text('$_selectedGroup', style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
         ),
-      ),
+      
       const SliverToBoxAdapter(child: SizedBox(height: AppTokens.p8)),
-      if (_selectedMainTopic == null)
+      
+      // Group selection grid
+      if (_selectedGroup == null)
         SliverToBoxAdapter(
           child: GridView.builder(
             shrinkWrap: true,
@@ -114,15 +331,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
               crossAxisSpacing: AppTokens.p12,
               childAspectRatio: 1.05,
             ),
-            itemCount: _mainTopics.length,
+            itemCount: _categoryGroups.keys.length,
             itemBuilder: (context, index) {
-              final main = _mainTopics[index];
+              final group = _categoryGroups.keys.elementAt(index);
               return TopicTile(
-                topic: _TopicAdapter(name: main),
+                topic: _TopicAdapter(
+                  name: group,
+                  icon: _getGroupIcon(group),
+                ),
                 onTap: () {
                   setState(() {
-                    _selectedMainTopic = main;
-                    _filteredArticles = _filterArticlesByMainTopic(main);
+                    _selectedGroup = group;
+                    _filteredArticles = _filterArticlesByGroup(group);
                   });
                 },
                 selected: false,
@@ -130,28 +350,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
             },
           ),
         )
+      // Articles for selected group
       else
         SliverToBoxAdapter(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      setState(() {
-                        _selectedMainTopic = null;
-                        _filteredArticles = [];
-                      });
-                    },
-                  ),
-                  Text('Articles for "$_selectedMainTopic"', style: Theme.of(context).textTheme.titleMedium),
-                ],
-              ),
               const SizedBox(height: AppTokens.p8),
               _filteredArticles.isEmpty
-                  ? const Text('No articles found for this topic.')
+                  ? const Text('No articles found in this category.')
                   : ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -160,18 +367,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         final article = _filteredArticles[index];
                         return Card(
                           color: AppTokens.card,
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            title: Text(article.title),
-                            subtitle: Text(article.author),
-                            trailing: Icon(Icons.arrow_forward_ios, color: AppTokens.accent),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => ArticleDetailScreen(summary: article),
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  article.title,
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              );
-                            },
+                                const SizedBox(height: 6),
+                                Text(
+                                  article.author,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: article.categories
+                                      .map((cat) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppTokens.accent.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          cat,
+                                          style: Theme.of(context).textTheme.labelSmall,
+                                        ),
+                                      ))
+                                      .toList(),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => ArticleDetailScreen(summary: article),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.arrow_forward, size: 16),
+                                    label: const Text('Read'),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -181,194 +433,49 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
     ];
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.p16),
-        child: CustomScrollView(
-          key: const PageStorageKey('explore_scroll'),
-          slivers: [
-            ...slivers,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopicsLoading extends StatelessWidget {
-  const _TopicsLoading({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: AppTokens.p12,
-      crossAxisSpacing: AppTokens.p12,
-      childAspectRatio: 1.05,
-      children: const [
-        SkeletonBox(height: 120, radius: AppTokens.r16),
-        SkeletonBox(height: 120, radius: AppTokens.r16),
-        SkeletonBox(height: 120, radius: AppTokens.r16),
-        SkeletonBox(height: 120, radius: AppTokens.r16),
-      ],
-    );
-  }
-}
-
-class _TopicsEmpty extends StatelessWidget {
-  const _TopicsEmpty({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppTokens.p16),
-      child: Text(
-        'No topics yet.',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTokens.textMuted),
-      ),
-    );
-  }
-}
-
-class _TopicsGrid extends StatelessWidget {
-  const _TopicsGrid({
-    super.key,
-    required this.topics,
-    required this.selectedTopic,
-    required this.onTopicSelected,
-  });
-
-  final List<_ExploreTopic> topics;
-  final String? selectedTopic;
-  final ValueChanged<String> onTopicSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: AppTokens.p12,
-        crossAxisSpacing: AppTokens.p12,
-        childAspectRatio: 1.05,
-      ),
-      itemCount: topics.length,
-      itemBuilder: (context, index) {
-        final t = topics[index];
-        final isSelected = t.label == selectedTopic;
-        return TopicTile(
-          topic: t.asTopic(),
-          onTap: () => onTopicSelected(t.label),
-          selected: isSelected,
-        );
+    return PopScope(
+      canPop: _selectedGroup == null,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          setState(() {
+            _selectedGroup = null;
+            _filteredArticles = [];
+          });
+        }
       },
-    );
-  }
-}
-
-
-const List<String> _mainTopics = [
-  'Science & Technology',
-  'Humanities & Social Sciences',
-  'Business & Economics',
-  'Arts, Culture & Media',
-  'Health, Lifestyle & Sports',
-  'Niche & Miscellaneous',
-];
-
-const Map<String, List<String>> _subTopics = {
-  'Science & Technology': [
-    "Acoustics", "Aerospace Engineering", "Agronomy", "Artificial Intelligence", "Astronomy", "Astrophysics", "Automation", "Bioinformatics", "Biotechnology", "Blockchain", "Botany", "Chemical Engineering", "Civil Engineering", "Cloud Computing", "Computer Vision", "Consumer Electronics", "Cryptography", "Cybersecurity", "Data Science", "Ecology", "Electrical Engineering", "Entomology", "Epidemiology", "Evolutionary Biology", "Forensic Science", "Game Development", "Genetics", "Geology", "Hacking", "Hydrology", "Immunology", "Information Technology", "Internet of Things (IoT)", "Machine Learning", "Marine Biology", "Materials Science", "Mechanical Engineering", "Meteorology", "Microbiology", "Nanotechnology", "Neuroscience", "Nuclear Physics", "Oceanography", "Optics", "Organic Chemistry", "Paleontology", "Particle Physics", "Pharmacology", "Quantum Mechanics", "Robotics", "Software Engineering", "Space Exploration", "Sustainability", "Telecommunications", "Thermodynamics", "Toxicology", "Virtual Reality (VR)", "Web Development", "Zoology",
-  ],
-  'Humanities & Social Sciences': [
-    "Anthropology", "Archaeology", "Cognitive Science", "Criminology", "Demography", "Developmental Psychology", "Epistemology", "Ethics", "Ethnography", "Gender Studies", "Genealogy", "Geography", "Geopolitics", "History (Ancient, Medieval, Modern)", "Human Rights", "International Relations", "Law (Constitutional, Corporate, Criminal)", "Linguistics", "Logic", "Media Studies", "Metaphysics", "Military History", "Mythology", "Pedagogy", "Philosophy", "Political Science", "Psychology (Clinical, Social, Behavioral)", "Public Administration", "Religious Studies", "Social Work", "Sociology", "Theology", "Urban Planning",
-  ],
-  'Business & Economics': [
-    "Accounting", "Advertising", "Behavioral Economics", "Branding", "Business Ethics", "Corporate Governance", "Cryptocurrency", "Digital Marketing", "E-commerce", "Entrepreneurship", "Finance (Personal, Corporate)", "Human Resources", "Industrial Relations", "Insurance", "International Trade", "Investing", "Logistics", "Macroeconomics", "Management", "Microeconomics", "Operations Management", "Project Management", "Real Estate", "Sales", "Stock Market", "Supply Chain Management", "Taxation", "Venture Capital",
-  ],
-  'Arts, Culture & Media': [
-    "Animation", "Architecture", "Art History", "Calligraphy", "Cinematography", "Creative Writing", "Culinary Arts", "Dance", "Design (Graphic, Industrial, Interior)", "Fashion", "Film Studies", "Fine Arts", "Journalism", "Literature", "Music Theory", "Performing Arts", "Photography", "Poetry", "Pop Culture", "Publishing", "Sculpture", "Stand-up Comedy", "Television", "Textile Design", "Theater", "Video Games", "Visual Arts",
-  ],
-  'Health, Lifestyle & Sports': [
-    "Alternative Medicine", "Athletic Training", "Biohacking", "Dental Hygiene", "Dermatology", "Dietetics", "Emergency Medicine", "Ergonomics", "Fitness", "Gastronomy", "Geriatrics", "Holistic Health", "Kinesiology", "Meditation", "Mental Health", "Minimalism", "Nursing", "Nutrition", "Occupational Therapy", "Parenting", "Pediatrics", "Personal Development", "Physical Therapy", "Productivity", "Psychiatry", "Public Health", "Sports Management", "Sports Psychology", "Sports Science", "Survivalism", "Travel & Tourism", "Veterinary Medicine", "Wellness", "Yoga",
-  ],
-  'Niche & Miscellaneous': [
-    "Astrology", "Aviation", "Bibliophilia", "Carpentry", "Chess", "Collecting (Philately, Numismatics)", "Conspiracy Theories", "Cryptozoology", "DIY & Making", "Esotericism", "Etiquette", "Futurism", "Gardening", "Genealogy", "Horticulture", "Magic (Illusion)", "Maritime Studies", "Military Strategy", "Numismatics", "Occultism", "Parapsychology", "Philanthropy", "Survival Skills", "Transhumanism", "True Crime", "Vexillology (Flags)"
-  ],
-};
-
-class _ExploreTopic {
-  const _ExploreTopic({required this.label});
-
-  final String label;
-
-  // Uses a generic icon to avoid hardcoded topic taxonomy.
-  // We keep `TopicTile` reusable without introducing new UI.
-  dynamic asTopic() {
-    // Local adapter object for TopicTile's expected type.
-    return _TopicAdapter(name: label);
-  }
-}
-
-class _TopicAdapter {
-  const _TopicAdapter({required this.name});
-
-  final String name;
-
-  // TopicTile expects `topic.icon` and `topic.name`.
-  IconData get icon => Icons.local_offer_outlined;
-}
-
-List<_ExploreTopic> _deriveTopics(List<SummaryItem> items) {
-  final set = <String>{};
-  final out = <_ExploreTopic>[];
-
-  for (final it in items) {
-    final label = (it.feedTitle ?? it.sourceDomain ?? '').trim();
-    if (label.isEmpty) continue;
-    if (set.add(label)) out.add(_ExploreTopic(label: label));
-  }
-
-  out.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
-  return out;
-}
-
-class _DiveDeeperCard extends StatelessWidget {
-  const _DiveDeeperCard({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTokens.r16),
-      child: Material(
-        color: AppTokens.card,
-        child: InkWell(
-          onTap: onTap,
-          splashColor: AppTokens.accent.withOpacity(0.10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppTokens.p12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: Colors.white.withOpacity(0.85)),
-                const SizedBox(height: 8),
-                Text(label, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.p16),
+          child: CustomScrollView(
+            key: const PageStorageKey('explore_scroll'),
+            slivers: [
+              ...slivers,
+            ],
           ),
         ),
       ),
     );
   }
+
+  IconData _getGroupIcon(String group) {
+    const groupIcons = {
+      'Science & Technology': Icons.science,
+      'Humanities & Social Sciences': Icons.school,
+      'Business & Economics': Icons.business,
+      'Arts, Culture & Media': Icons.palette,
+      'Health, Lifestyle & Sports': Icons.fitness_center,
+      'Niche & Miscellaneous': Icons.category,
+    };
+    return groupIcons[group] ?? Icons.category;
+  }
+}
+
+class _TopicAdapter {
+  const _TopicAdapter({
+    required this.name,
+    this.icon = Icons.local_offer_outlined,
+  });
+
+  final String name;
+  final IconData icon;
 }

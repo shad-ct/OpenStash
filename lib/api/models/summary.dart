@@ -70,6 +70,7 @@ class SummaryItem {
     required this.ingestedAt,
     required this.imageUrl,
     required this.points,
+    required this.categories,
   });
 
   final String id;
@@ -83,6 +84,7 @@ class SummaryItem {
   final DateTime? ingestedAt;
   final String? imageUrl;
   final List<SummaryPoint> points;
+  final List<String> categories;
 
   factory SummaryItem.fromJson(Map<String, Object?> json) {
     final feed = json['feed'] as Map<String, Object?>?;
@@ -90,6 +92,7 @@ class SummaryItem {
     final content = json['content'] as Map<String, Object?>?;
     final summary = json['summary'] as Map<String, Object?>?;
     final pointsJson = (summary?['points'] as List<Object?>? ?? const <Object?>[]);
+    final categoriesJson = (json['categories'] as List<Object?>? ?? const <Object?>[]);
 
     return SummaryItem(
       id: (json['_id'] as String?) ?? '',
@@ -105,6 +108,9 @@ class SummaryItem {
       points: pointsJson
           .whereType<Map<String, Object?>>()
           .map(SummaryPoint.fromJson)
+          .toList(growable: false),
+      categories: categoriesJson
+          .whereType<String>()
           .toList(growable: false),
     );
   }
@@ -130,6 +136,7 @@ class SummaryItem {
       'summary': {
         'points': points.map((e) => e.toJson()).toList(growable: false),
       },
+      'categories': categories,
     };
   }
 }
