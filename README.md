@@ -1,16 +1,12 @@
-# openstash
+**Curate your mind. Discover, save, and organize ideas that matter.**
 
-A new Flutter project.
+## 📖 About
+Deepstash is a knowledge curation platform designed for the busy mind. We help users discover bite-sized ideas (stashes) from the world's best books, podcasts, and articles. Instead of reading entire volumes, users can consume essential insights in minutes, organizing them into a personal wisdom library.
 
-## Getting Started
+This repository contains the source code for the **[Web / Mobile]** client of Deepstash.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## ✨ Key Features
+* **Micro-Learning:** Consume knowledge in small, digestible cards.
+* **Curation:** Save and organize ideas into specific topics.
+* **Discovery:** Personalized feed based on interests (Productivity, Psychology, Tech).
+* **Social:** Follow curators and share insights with the community.
