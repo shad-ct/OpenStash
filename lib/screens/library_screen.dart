@@ -1,230 +1,299 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/tokens.dart';
-import '../widgets/idea_card.dart';
-import '../widgets/library_tile.dart';
+import '../repositories/library_repository.dart';
+import '../database/database.dart';
 
-class LibraryScreen extends StatefulWidget {
+class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
 
   @override
-  State<LibraryScreen> createState() => _LibraryScreenState();
-}
-
-class _LibraryScreenState extends State<LibraryScreen> {
-  bool _grid = false;
-  int _filterIndex = 0;
-
-  final Set<String> _savedIdeaIds = <String>{};
-  final Set<String> _likedIdeaIds = <String>{};
-
-  @override
   Widget build(BuildContext context) {
-    // Intentionally empty until the backend exposes a saved-ideas endpoint.
-    // Ensures no content is shown from local mocks.
-    const savedIdeas = <dynamic>[];
-
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create folder (coming soon)')),
-          );
-        },
-        backgroundColor: AppTokens.cardAlt,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        label: const Text('+ Folder'),
-        icon: const Icon(Icons.create_new_folder_outlined),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppTokens.p16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppTokens.p8),
-              Row(
-                children: [
-                  Text('Library', style: Theme.of(context).textTheme.titleMedium),
-                  const Spacer(),
-                  Text(
-                    'Synced',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTokens.textMuted),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTokens.p12),
-              Row(
-                children: [
-                  Expanded(
-                    child: LibraryTile(
-                      label: 'Read Later',
-                      icon: Icons.bookmark_outline,
-                      background: AppTokens.stashReadLaterBg,
-                      onTap: () {},
-                    ),
-                  ),
-                  const SizedBox(width: AppTokens.p12),
-                  Expanded(
-                    child: LibraryTile(
-                      label: 'My Scanned Books',
-                      icon: Icons.document_scanner_outlined,
-                      background: AppTokens.stashScannedBg,
-                      onTap: () {},
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTokens.p16),
-              Row(
-                children: [
-                  _FilterChip(
-                    label: 'Recent First',
-                    selected: _filterIndex == 0,
-                    onTap: () => setState(() => _filterIndex = 0),
-                  ),
-                  const SizedBox(width: AppTokens.p8),
-                  _FilterChip(
-                    label: 'Saved',
-                    selected: _filterIndex == 1,
-                    onTap: () => setState(() => _filterIndex = 1),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => setState(() => _grid = !_grid),
-                    icon: Icon(_grid ? Icons.view_agenda_outlined : Icons.grid_view_outlined),
-                    splashRadius: 22,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTokens.p12),
-              Expanded(
-                child: _grid
-                    ? GridView.builder(
-                        key: const PageStorageKey('library_grid'),
-                        padding: const EdgeInsets.only(bottom: 96),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: AppTokens.p12,
-                          crossAxisSpacing: AppTokens.p12,
-                          childAspectRatio: 0.92,
-                        ),
-                        itemCount: savedIdeas.length,
-                        itemBuilder: (context, index) {
-                          final idea = savedIdeas[index];
-                          final saved = _savedIdeaIds.contains(idea.id);
-                          final liked = _likedIdeaIds.contains(idea.id);
-                          return IdeaCard(
-                            text: idea.text,
-                            saved: saved,
-                            liked: liked,
-                            onShare: () {},
-                            onToggleSaved: () => setState(() {
-                              saved ? _savedIdeaIds.remove(idea.id) : _savedIdeaIds.add(idea.id);
-                            }),
-                            onToggleLiked: () => setState(() {
-                              liked ? _likedIdeaIds.remove(idea.id) : _likedIdeaIds.add(idea.id);
-                            }),
-                            onLongPress: () => _showMoveSheet(context),
-                          );
-                        },
-                      )
-                    : ListView.separated(
-                        key: const PageStorageKey('library_list'),
-                        padding: const EdgeInsets.only(bottom: 96),
-                        itemCount: savedIdeas.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: AppTokens.p12),
-                        itemBuilder: (context, index) {
-                          final idea = savedIdeas[index];
-                          final saved = _savedIdeaIds.contains(idea.id);
-                          final liked = _likedIdeaIds.contains(idea.id);
-                          return IdeaCard(
-                            text: idea.text,
-                            saved: saved,
-                            liked: liked,
-                            onShare: () {},
-                            onToggleSaved: () => setState(() {
-                              saved ? _savedIdeaIds.remove(idea.id) : _savedIdeaIds.add(idea.id);
-                            }),
-                            onToggleLiked: () => setState(() {
-                              liked ? _likedIdeaIds.remove(idea.id) : _likedIdeaIds.add(idea.id);
-                            }),
-                            onLongPress: () => _showMoveSheet(context),
-                          );
-                        },
-                      ),
-              ),
-              if (savedIdeas.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppTokens.p16),
-                  child: Text(
-                    'No saved ideas yet.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTokens.textMuted),
-                  ),
-                ),
-            ],
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            'Library',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Saved'),
+              Tab(text: 'Liked'),
+            ],
+            indicatorColor: AppTokens.accent,
+            labelColor: AppTokens.accent,
+            unselectedLabelColor: AppTokens.textMuted,
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _SavedTab(),
+            _LikedTab(),
+          ],
         ),
       ),
     );
   }
+}
 
-  Future<void> _showMoveSheet(BuildContext context) async {
-    await showModalBottomSheet<void>(
+class _SavedTab extends StatefulWidget {
+  const _SavedTab();
+
+  @override
+  State<_SavedTab> createState() => _SavedTabState();
+}
+
+class _SavedTabState extends State<_SavedTab> {
+  List<Folder> _folders = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFolders();
+  }
+
+  Future<void> _loadFolders() async {
+    setState(() => _isLoading = true);
+    final folders = await libraryRepository.getFolders();
+    if (mounted) {
+      setState(() {
+        _folders = folders;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _createFolder() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
       context: context,
-      backgroundColor: AppTokens.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.r16)),
+      builder: (context) => AlertDialog(
+        title: const Text('New Folder'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Folder Name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Create')),
+        ],
       ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppTokens.p16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Move to folder', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: AppTokens.p12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.bookmark_outline),
-                  title: const Text('Read Later'),
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.document_scanner_outlined),
-                  title: const Text('My Scanned Books'),
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-              ],
+    );
+
+    if (name != null && name.trim().isNotEmpty) {
+      await libraryRepository.createFolder(name.trim());
+      _loadFolders();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _folders.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final folder = _folders[index];
+          return ListTile(
+            tileColor: Theme.of(context).cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Theme.of(context).dividerColor),
             ),
-          ),
+            leading: Icon(
+              folder.isDefault ? Icons.bookmark : Icons.folder,
+              color: AppTokens.textMuted,
+            ),
+            title: Text(folder.name),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => FolderScreen(folder: folder)),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _createFolder,
+        backgroundColor: AppTokens.accent,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.create_new_folder),
+      ),
+    );
+  }
+}
+
+class FolderScreen extends StatelessWidget {
+  const FolderScreen({super.key, required this.folder});
+  final Folder folder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        title: Text(folder.name),
+      ),
+      body: StreamBuilder<List<SavedIdea>>(
+        stream: libraryRepository.watchSavedIdeas(folder.id),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final ideas = snapshot.data ?? [];
+          if (ideas.isEmpty) {
+            return const Center(child: Text('No ideas saved in this folder.'));
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: ideas.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, index) {
+              final idea = ideas[index];
+              return _IdeaListItem(
+                articleTitle: idea.articleTitle,
+                textContent: idea.textContent,
+                articleUrl: idea.articleUrl,
+                onRemove: () => libraryRepository.removeSavedIdea(idea.id),
+                icon: Icons.bookmark_remove,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LikedTab extends StatelessWidget {
+  const _LikedTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<LikedIdea>>(
+      stream: libraryRepository.watchLikedIdeas(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final ideas = snapshot.data ?? [];
+        if (ideas.isEmpty) {
+          return const Center(child: Text('No liked ideas yet.'));
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: ideas.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          itemBuilder: (context, index) {
+            final idea = ideas[index];
+            return _IdeaListItem(
+              articleTitle: idea.articleTitle,
+              textContent: idea.textContent,
+              articleUrl: idea.articleUrl,
+              onRemove: () => libraryRepository.unlikeIdea(idea.id),
+              icon: Icons.favorite_border,
+            );
+          },
         );
       },
     );
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
+class _IdeaListItem extends StatelessWidget {
+  const _IdeaListItem({
+    required this.articleTitle,
+    required this.textContent,
+    required this.articleUrl,
+    required this.onRemove,
+    required this.icon,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final String articleTitle;
+  final String textContent;
+  final String articleUrl;
+  final VoidCallback onRemove;
+  final IconData icon;
+
+  Future<void> _launchUrl(String urlString) async {
+    final uri = Uri.tryParse(urlString);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  articleTitle,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTokens.textMuted,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onRemove,
+                icon: Icon(icon, size: 20, color: AppTokens.textMuted),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            textContent,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _launchUrl(articleUrl),
+              icon: const Icon(Icons.open_in_new, size: 14),
+              label: const Text('Read Article', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

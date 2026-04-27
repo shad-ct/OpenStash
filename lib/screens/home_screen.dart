@@ -8,10 +8,13 @@ import '../widgets/motion.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/streak_badge.dart';
+import '../widgets/streak_calendar_bottom_sheet.dart';
 import '../api/api_client.dart';
 import '../api/models/summary.dart';
 import '../repositories/summary_repository.dart';
+import '../repositories/streak_repository.dart';
 import 'article_detail_screen.dart';
+import 'library_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -77,7 +80,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const SizedBox(height: AppTokens.p16),
                   _TopBar(
                     streakCount: _streakCount,
-                    onTapStreak: null,
+                    onTapStreak: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => const StreakCalendarBottomSheet(),
+                      ).then((_) => _loadStreakCount());
+                    },
                     isRefreshing: _isRefreshing,
                     onTapRefresh: _refreshBackend,
                   ),
@@ -110,11 +120,47 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _load();
+    _loadStreakCount();
 
     if (!widget.testMode) {
       WidgetsBinding.instance.addObserver(this);
       _scheduleNextRefresh();
     }
+  }
+
+  Future<void> _loadStreakCount() async {
+    final dates = await streakRepository.getCompletedDates();
+    if (!mounted) return;
+    
+    // Simple streak calculation (how many consecutive days from today backwards)
+    int currentStreak = 0;
+    DateTime today = DateTime.now();
+    today = DateTime(today.year, today.month, today.day);
+    
+    // Convert to normalized dates
+    final dateSet = dates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+    
+    DateTime checkDate = today;
+    // If today is not in set, check yesterday. If yesterday is not in set, streak is 0.
+    if (!dateSet.contains(checkDate)) {
+      checkDate = checkDate.subtract(const Duration(days: 1));
+      if (!dateSet.contains(checkDate)) {
+        setState(() {
+          _streakCount = 0;
+        });
+        return;
+      }
+    }
+    
+    // Count backwards
+    while (dateSet.contains(checkDate)) {
+      currentStreak++;
+      checkDate = checkDate.subtract(const Duration(days: 1));
+    }
+    
+    setState(() {
+      _streakCount = currentStreak;
+    });
   }
 
   @override
@@ -132,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _attemptRefreshIfDue();
       _scheduleNextRefresh();
+      _loadStreakCount();
     }
   }
 
@@ -142,7 +189,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final all = page.items.where((item) => item.id.isNotEmpty).toList();
       setState(() {
         _items = List<SummaryItem>.unmodifiable(all);
-        _streakCount = _items.length;
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
         _offline = false;
       });
@@ -159,7 +205,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     setState(() {
       _items = List<SummaryItem>.unmodifiable(cached);
-      _streakCount = _items.length;
       _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
       // Default to showing the "saved content" banner unless we successfully refresh.
       _offline = true;
@@ -186,7 +231,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       setState(() {
         _items = List<SummaryItem>.unmodifiable(refreshed);
-        _streakCount = _items.length;
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
         _offline = false;
       });
@@ -195,7 +239,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         // Keep showing cached data.
         _offline = true;
-        _streakCount = _items.length;
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
       });
     }
@@ -310,15 +353,14 @@ class _TopBar extends StatelessWidget {
               onTap: onTapStreak,
             ),
             const SizedBox(width: AppTokens.p12),
-            Container(
-              height: 36,
-              width: 36,
-              decoration: BoxDecoration(
-                color: AppTokens.cardAlt,
-                shape: BoxShape.circle,
-                border: Border.all(color: Theme.of(context).dividerColor),
-              ),
-              child: const Icon(Icons.person, size: 18, color: AppTokens.textMuted),
+            IconButton(
+              icon: const Icon(Icons.local_library_outlined, color: AppTokens.textMuted),
+              tooltip: 'Library',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => LibraryScreen()),
+                );
+              },
             ),
           ],
         ),
@@ -356,7 +398,13 @@ class _ContentFeed extends StatelessWidget {
           onTap: () {
             Navigator.of(context).push(
               Motion.pageRoute((_) => ArticleDetailScreen(summary: summary)),
-            );
+            ).then((_) {
+              // Refresh streak when returning from reading
+              if (context.mounted) {
+                final state = context.findAncestorStateOfType<_HomeScreenState>();
+                state?._loadStreakCount();
+              }
+            });
           },
         );
       },

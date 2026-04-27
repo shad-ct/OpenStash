@@ -7,7 +7,7 @@ import 'models/summary.dart';
 class ApiClient {
   ApiClient({
     http.Client? client,
-    this.baseUrl = 'https://openstash-backend-1.onrender.com',
+    this.baseUrl = 'https://openstash.onrender.com',
   }) : _client = client ?? http.Client();
 
   final http.Client _client;

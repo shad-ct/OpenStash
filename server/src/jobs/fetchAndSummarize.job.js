@@ -80,24 +80,34 @@ function isEightAmInTimeZone(date, timeZone) {
 async function tryAcquireDailyRun(now) {
   const today = toDateKeyInTimeZone(now, DAILY_JOB_TIMEZONE);
 
-  const updated = await withMongoRetry(
-    () =>
-      JobState.findOneAndUpdate(
-        { key: DAILY_GEMINI_JOB_KEY, 'value.lastRunDate': { $ne: today } },
-        {
-          $set: {
-            key: DAILY_GEMINI_JOB_KEY,
-            'value.lastRunDate': today,
-            'value.lastRunAt': now,
+  try {
+    const updated = await withMongoRetry(
+      () =>
+        JobState.findOneAndUpdate(
+          { key: DAILY_GEMINI_JOB_KEY, 'value.lastRunDate': { $ne: today } },
+          {
+            $set: {
+              key: DAILY_GEMINI_JOB_KEY,
+              'value.lastRunDate': today,
+              'value.lastRunAt': now,
+            },
           },
-        },
-        { upsert: true, new: true }
-      ),
-    'findOneAndUpdate(JobState.daily-run)'
-  );
+          { upsert: true, new: true }
+        ),
+      'findOneAndUpdate(JobState.daily-run)'
+    );
 
-  // If we didn't match (already ran today), Mongoose returns null.
-  return Boolean(updated);
+    // If we didn't match (already ran today), Mongoose returns null.
+    return Boolean(updated);
+  } catch (err) {
+    // E11000: duplicate key — another concurrent startup already inserted the doc.
+    // Treat this as "already acquired" so we skip gracefully.
+    if (err?.code === 11000) {
+      console.log('tryAcquireDailyRun: duplicate key race — another process already acquired the lock; skipping.');
+      return false;
+    }
+    throw err;
+  }
 }
 
 function sleep(ms) {
