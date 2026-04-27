@@ -95,7 +95,7 @@ class SummaryItem {
     final categoriesJson = (json['categories'] as List<Object?>? ?? const <Object?>[]);
 
     return SummaryItem(
-      id: (json['_id'] as String?) ?? '',
+      id: (json['_id']?.toString()) ?? (json['id']?.toString()) ?? '',
       title: (json['title'] as String?) ?? '',
       author: (json['author'] as String?) ?? '',
       url: (json['url'] as String?) ?? '',

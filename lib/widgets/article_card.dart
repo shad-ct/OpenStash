@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models/summary.dart';
 import '../theme/tokens.dart';
@@ -72,6 +73,18 @@ class ArticleCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (article.ingestedAt != null) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text('•', style: TextStyle(color: AppTokens.textMuted)),
+                          ),
+                          Text(
+                            _formatDate(article.ingestedAt),
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppTokens.textSubtle,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -96,19 +109,42 @@ class ArticleCard extends StatelessWidget {
                     const SizedBox(height: 16),
                     
                     // Badges (Shadcn "Outline" style)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        if (article.points.isNotEmpty)
-                          _MetaBadge(
-                            icon: Icons.lightbulb_outline,
-                            text: '${article.points.length} Ideas',
-                          ),
-                        _MetaBadge(
-                          icon: Icons.bar_chart,
-                          text: _formatReads(article.reads),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (article.points.isNotEmpty)
+                              _MetaBadge(
+                                icon: Icons.lightbulb_outline,
+                                text: '${article.points.length} Ideas',
+                              ),
+                            _MetaBadge(
+                              icon: Icons.bar_chart,
+                              text: _formatReads(article.reads),
+                            ),
+                          ],
                         ),
+                        if (article.url.isNotEmpty)
+                          TextButton(
+                            onPressed: () => _launchUrl(article.url),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: Theme.of(context).colorScheme.primary,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Text('Read more', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                SizedBox(width: 4),
+                                Icon(Icons.open_in_new, size: 12),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -202,4 +238,17 @@ String _formatReads(int? n) {
   if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
   if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
   return '$n';
+}
+
+String _formatDate(DateTime? date) {
+  if (date == null) return '';
+  final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return '${date.day} ${months[date.month - 1]}';
+}
+
+Future<void> _launchUrl(String urlString) async {
+  final uri = Uri.tryParse(urlString);
+  if (uri != null && await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 }

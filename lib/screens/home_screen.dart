@@ -40,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   _HomeUiState _state = _HomeUiState.loading;
   bool _offline = false;
+  bool _isRefreshing = false;
   List<SummaryItem> _items = const <SummaryItem>[];
 
   DateTime _lastUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
@@ -77,6 +78,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   _TopBar(
                     streakCount: _streakCount,
                     onTapStreak: null,
+                    isRefreshing: _isRefreshing,
+                    onTapRefresh: _refreshBackend,
                   ),
                   const SizedBox(height: AppTokens.p16),
                   // Shadcn: Subtle separator
@@ -198,6 +201,38 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _refreshBackend() async {
+    if (widget.testMode || _isRefreshing) return;
+
+    setState(() {
+      _isRefreshing = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Triggering fresh summary generation...')),
+    );
+
+    try {
+      await _api.refreshFeed(force: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generation started! Check back soon.')),
+      );
+      await _attemptRefreshIfDue();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to trigger refresh.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    }
+  }
+
   void _scheduleNextRefresh() {
     _refreshTimer?.cancel();
     final nextAt = _repo.nextScheduledRefresh();
@@ -212,10 +247,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.streakCount, required this.onTapStreak});
+  const _TopBar({
+    required this.streakCount,
+    required this.onTapStreak,
+    required this.onTapRefresh,
+    this.isRefreshing = false,
+  });
 
   final int streakCount;
   final VoidCallback? onTapStreak;
+  final VoidCallback? onTapRefresh;
+  final bool isRefreshing;
 
   @override
   Widget build(BuildContext context) {
@@ -247,6 +289,21 @@ class _TopBar extends StatelessWidget {
         // Actions Area
         Row(
           children: [
+            if (isRefreshing)
+              const Padding(
+                padding: EdgeInsets.only(right: AppTokens.p12),
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppTokens.textMuted),
+                tooltip: 'Refresh Feed',
+                onPressed: onTapRefresh,
+              ),
             StreakBadge(
               key: const Key('streak_badge'),
               count: streakCount,

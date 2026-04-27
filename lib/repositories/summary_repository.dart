@@ -53,15 +53,22 @@ class SummaryRepository {
   Future<RefreshDecision> canRefreshNow() async {
     final now = _now();
     final todayAt9 = _todayRefreshAt(now);
-    if (now.isBefore(todayAt9)) {
-      return RefreshDecision.notYet;
-    }
+    
+    // The most recent 9 AM boundary
+    final mostRecent9AM = now.isBefore(todayAt9) 
+        ? todayAt9.subtract(const Duration(days: 1)) 
+        : todayAt9;
 
     final last = await _store.getLastRefreshAt();
-    if (last != null && !last.isBefore(todayAt9)) {
-      return RefreshDecision.alreadyDoneToday;
+    if (last == null) {
+      return const RefreshDecision._(allowed: true, reason: 'Never refreshed');
     }
-    return RefreshDecision.allowedNow;
+
+    if (last.isBefore(mostRecent9AM)) {
+      return const RefreshDecision._(allowed: true, reason: 'Due for daily refresh');
+    }
+
+    return RefreshDecision.alreadyDoneToday;
   }
 
   Future<List<SummaryItem>> refreshFeedIfDue() {

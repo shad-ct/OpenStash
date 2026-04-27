@@ -7,7 +7,7 @@ import 'models/summary.dart';
 class ApiClient {
   ApiClient({
     http.Client? client,
-    this.baseUrl = 'https://openstash-backend.onrender.com',
+    this.baseUrl = 'https://openstash-backend-1.onrender.com',
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
@@ -42,6 +42,18 @@ class ApiClient {
 
     final json = jsonDecode(res.body) as Map<String, Object?>;
     return SummaryItem.fromJson(json);
+  }
+
+
+
+  Future<void> refreshFeed({bool force = false}) async {
+    final uri = Uri.parse('$baseUrl/api/refresh').replace(
+      queryParameters: force ? {'force': 'true'} : null,
+    );
+    final res = await _client.post(uri).timeout(const Duration(minutes: 2));
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw ApiException('Refresh feed failed (${res.statusCode})');
+    }
   }
 }
 
