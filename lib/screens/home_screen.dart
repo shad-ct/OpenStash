@@ -44,7 +44,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   _HomeUiState _state = _HomeUiState.loading;
   bool _offline = false;
   bool _isRefreshing = false;
-  List<SummaryItem> _items = const <SummaryItem>[];
+  bool _tiktokMode = false;
+  List<SummaryItem> _items = <SummaryItem>[];
+  
+  int _currentPage = 1;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  late final ScrollController _scrollController = ScrollController()..addListener(_onScroll);
 
 
 
@@ -58,6 +64,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           key: const ValueKey('home_content'),
           offline: _offline,
           items: _items,
+          tiktokMode: _tiktokMode,
+          scrollController: _scrollController,
+          onLoadMore: _loadMore,
+          onLoadPrevious: _loadPrevious,
+          currentPage: _currentPage,
+          hasMore: _hasMore,
+          isLoadingMore: _isLoadingMore,
         ),
     };
 
@@ -113,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _loadTikTokMode();
     _load();
     _loadStreakCount();
 
@@ -163,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       WidgetsBinding.instance.removeObserver(this);
     }
     _refreshTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -179,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _load() async {
     if (widget.testMode) {
       // Synchronous mock for tests: set state instantly, no async/await.
-      final page = await _api.getSummaries(page: 1, limit: 100);
+      final page = await _api.getSummaries(page: 1, limit: 10);
       final all = page.items.where((item) => item.id.isNotEmpty).toList();
       setState(() {
         _items = List<SummaryItem>.unmodifiable(all);
@@ -198,13 +213,68 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!mounted) return;
 
     setState(() {
-      _items = List<SummaryItem>.unmodifiable(cached);
+      _items = List<SummaryItem>.from(cached.take(10));
       _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
       // Default to showing the "saved content" banner unless we successfully refresh.
       _offline = true;
     });
 
     await _attemptRefreshIfDue();
+  }
+
+  Future<void> _loadTikTokMode() async {
+    final mode = await _repo.getTikTokMode();
+    if (mounted) {
+      setState(() => _tiktokMode = mode);
+    }
+  }
+
+  void _onScroll() {
+    // Automatic pagination disabled as per user request for a manual "Next" button
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    _loadPage(_currentPage + 1);
+  }
+
+  Future<void> _loadPrevious() async {
+    if (_isLoadingMore || _currentPage <= 1) return;
+    _loadPage(_currentPage - 1);
+  }
+
+  Future<void> _loadPage(int nextPage) async {
+    setState(() => _isLoadingMore = true);
+    
+    try {
+      final page = await _repo.getSummariesPage(page: nextPage);
+      
+      if (mounted) {
+        setState(() {
+          final newItems = page.items.where((item) => item.id.isNotEmpty).toList();
+          _items = List<SummaryItem>.from(newItems);
+          _currentPage = nextPage;
+          _hasMore = page.pageInfo.hasNext && newItems.isNotEmpty;
+          _isLoadingMore = false;
+        });
+        
+        // Scroll to top when page changes
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0, 
+            duration: const Duration(milliseconds: 400), 
+            curve: Curves.easeOutCubic,
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load page. Please try again.')),
+        );
+      }
+    }
   }
 
   Future<void> _attemptRefreshIfDue() async {
@@ -227,6 +297,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _items = List<SummaryItem>.unmodifiable(refreshed);
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
         _offline = false;
+        _currentPage = 1;
+        _hasMore = true;
       });
     } catch (_) {
       if (!mounted) return;
@@ -249,6 +321,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _items = List<SummaryItem>.unmodifiable(refreshed);
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
         _offline = false;
+        _currentPage = 1;
+        _hasMore = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Feed updated from MongoDB!')),
@@ -290,6 +364,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _items = List<SummaryItem>.unmodifiable(refreshed);
         _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
         _offline = false;
+        _currentPage = 1;
+        _hasMore = true;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -314,12 +390,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _SettingsSheet(
-        isRefreshing: _isRefreshing,
-        onFetchNew: () {
-          Navigator.of(context).pop();
-          _refreshBackend();
-        },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => _SettingsSheet(
+          isRefreshing: _isRefreshing,
+          tiktokMode: _tiktokMode,
+          onTikTokModeChanged: (val) async {
+            await _repo.setTikTokMode(val);
+            if (mounted) {
+              setState(() => _tiktokMode = val);
+              setSheetState(() {}); // Rebuild the sheet to show toggle change
+            }
+          },
+          onFetchNew: () {
+            Navigator.of(context).pop();
+            _refreshBackend();
+          },
+        ),
       ),
     );
   }
@@ -431,10 +517,14 @@ class _TopBar extends StatelessWidget {
 class _SettingsSheet extends StatelessWidget {
   const _SettingsSheet({
     required this.isRefreshing,
+    required this.tiktokMode,
+    required this.onTikTokModeChanged,
     required this.onFetchNew,
   });
-
+  
   final bool isRefreshing;
+  final bool tiktokMode;
+  final ValueChanged<bool> onTikTokModeChanged;
   final VoidCallback onFetchNew;
 
   @override
@@ -527,6 +617,8 @@ class _SettingsSheet extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
+          const SizedBox(height: 8),
+          
           // Fetch New button
           _SettingsTile(
             icon: Icons.cloud_download_outlined,
@@ -541,6 +633,21 @@ class _SettingsSheet extends StatelessWidget {
                 : const Icon(Icons.chevron_right_rounded,
                     size: 20, color: AppTokens.textMuted),
             onTap: isRefreshing ? null : onFetchNew,
+          ),
+
+          const SizedBox(height: 12),
+          
+          // TikTok Mode toggle
+          _SettingsTile(
+            icon: Icons.auto_awesome_motion_rounded,
+            label: 'TikTok Mode',
+            sublabel: 'Vertical immersive feed (TikTok style)',
+            onTap: () => onTikTokModeChanged(!tiktokMode),
+            trailing: Switch.adaptive(
+              value: tiktokMode,
+              onChanged: onTikTokModeChanged,
+              activeColor: AppTokens.accent,
+            ),
           ),
 
           const SizedBox(height: 8),
@@ -621,22 +728,122 @@ class _ContentFeed extends StatelessWidget {
     super.key,
     required this.offline,
     required this.items,
+    this.tiktokMode = false,
+    this.scrollController,
+    this.currentPage = 1,
+    this.isLoadingMore = false,
+    this.hasMore = true,
+    this.onLoadMore,
+    this.onLoadPrevious,
   });
 
   final bool offline;
   final List<SummaryItem> items;
+  final bool tiktokMode;
+  final ScrollController? scrollController;
+  final int currentPage;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final VoidCallback? onLoadMore;
+  final VoidCallback? onLoadPrevious;
 
   @override
   Widget build(BuildContext context) {
+    if (tiktokMode) {
+      return PageView.builder(
+        scrollDirection: Axis.vertical,
+        itemCount: items.length + (hasMore || currentPage > 1 ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= items.length) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isLoadingMore)
+                      const CircularProgressIndicator()
+                    else ...[
+                      if (hasMore)
+                        _PaginationButton(
+                          label: 'Next Page',
+                          icon: Icons.arrow_forward_rounded,
+                          onPressed: onLoadMore,
+                          isPrimary: true,
+                        ),
+                      if (currentPage > 1) ...[
+                        const SizedBox(height: 16),
+                        _PaginationButton(
+                          label: 'Previous Page',
+                          icon: Icons.arrow_back_rounded,
+                          onPressed: onLoadPrevious,
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }
+          final summary = items[index];
+          return ArticleCard(
+            article: summary,
+            isFullScreen: true,
+            onTap: () {
+              Navigator.of(context).push(
+                Motion.pageRoute((_) => ArticleDetailScreen(summary: summary)),
+              );
+            },
+          );
+        },
+      );
+    }
+
     return ListView.separated(
       key: const PageStorageKey('home_feed'),
+      controller: scrollController,
       padding: const EdgeInsets.only(bottom: 120),
-      itemCount: items.length + (offline ? 1 : 0),
-      separatorBuilder: (_, __) => const SizedBox(height: 16), // Increased spacing
+      itemCount: items.length + (offline ? 1 : 0) + (isLoadingMore || hasMore ? 1 : 0),
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         if (offline) {
           if (index == 0) return const OfflineBanner();
           index -= 1;
+        }
+
+        if (index >= items.length) {
+          if (isLoadingMore) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
+            child: Row(
+              children: [
+                if (currentPage > 1)
+                  Expanded(
+                    child: _PaginationButton(
+                      label: 'Previous',
+                      icon: Icons.arrow_back_rounded,
+                      onPressed: isLoadingMore ? null : onLoadPrevious,
+                    ),
+                  ),
+                if (currentPage > 1 && hasMore) const SizedBox(width: 12),
+                if (hasMore)
+                  Expanded(
+                    child: _PaginationButton(
+                      label: 'Next',
+                      icon: Icons.arrow_forward_rounded,
+                      onPressed: isLoadingMore ? null : onLoadMore,
+                      isPrimary: true,
+                    ),
+                  ),
+              ],
+            ),
+          );
         }
 
         final summary = items[index];
@@ -646,7 +853,6 @@ class _ContentFeed extends StatelessWidget {
             Navigator.of(context).push(
               Motion.pageRoute((_) => ArticleDetailScreen(summary: summary)),
             ).then((_) {
-              // Refresh streak when returning from reading
               if (context.mounted) {
                 final state = context.findAncestorStateOfType<_HomeScreenState>();
                 state?._loadStreakCount();
@@ -725,6 +931,43 @@ class _EmptyFeed extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PaginationButton extends StatelessWidget {
+  const _PaginationButton({
+    required this.label,
+    required this.icon,
+    this.onPressed,
+    this.isPrimary = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool isPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isPrimary 
+            ? AppTokens.accent.withOpacity(0.15)
+            : Colors.transparent,
+        foregroundColor: AppTokens.accent,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        side: BorderSide(
+          color: isPrimary 
+              ? AppTokens.accent.withOpacity(0.4) 
+              : AppTokens.accent.withOpacity(0.2),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
       ),
     );
   }

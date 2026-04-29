@@ -49,4 +49,15 @@ class OfflineStore {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_k(_lastRefreshAtKey), at.millisecondsSinceEpoch);
   }
+  static const String _tiktokModeKey = 'prefs.tiktokMode';
+
+  Future<bool> getTikTokMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_k(_tiktokModeKey)) ?? false;
+  }
+
+  Future<void> setTikTokMode(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_k(_tiktokModeKey), enabled);
+  }
 }

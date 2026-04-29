@@ -15,12 +15,14 @@ class IdeaCard extends StatefulWidget {
     this.initialRead = false,
     this.onLongPress,
     this.onRead,
+    this.isFullScreen = false,
   });
 
   final String text;
   final bool saved;
   final bool liked;
   final bool initialRead;
+  final bool isFullScreen;
   final VoidCallback onShare;
   final VoidCallback onToggleSaved;
   final VoidCallback onToggleLiked;
@@ -121,14 +123,20 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin,
 
     return Container(
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppTokens.r16),
-        border: Border.all(color: borderColor),
+        color: widget.isFullScreen ? Colors.transparent : bg,
+        borderRadius: widget.isFullScreen ? BorderRadius.zero : BorderRadius.circular(AppTokens.r16),
+        border: widget.isFullScreen ? null : Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Stack(
+        child: widget.isFullScreen ? _buildFullScreen(context) : _buildNormal(context),
+      ),
+    );
+  }
+
+  Widget _buildNormal(BuildContext context) {
+    return Stack(
         children: [
           // Animated fill progress
           Positioned.fill(
@@ -169,44 +177,7 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin,
                     // Toolbar
                     Row(
                       children: [
-                        // Tick button:
-                        //  - Grey circle while timer is running (not done yet)
-                        //  - Green/active once done (auto-marked or manually tapped)
-                        //  - Always tappable so user can mark early too
-                        AnimatedBuilder(
-                          animation: _controller,
-                          builder: (context, _) {
-                            return GestureDetector(
-                              onTap: markAsRead,
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _isRead
-                                      ? AppTokens.accent.withOpacity(0.15)
-                                      : Colors.transparent,
-                                  border: Border.all(
-                                    color: _isRead
-                                        ? AppTokens.accent
-                                        : Theme.of(context)
-                                            .dividerColor
-                                            .withOpacity(0.4),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.check,
-                                  size: 14,
-                                  color: _isRead
-                                      ? AppTokens.accent
-                                      : AppTokens.textMuted.withOpacity(0.25),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-
+                        _buildTickButton(context),
                         const Spacer(),
                         _IconAction(
                           icon: Icons.ios_share,
@@ -239,8 +210,119 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin,
             ),
           ),
         ],
-      ),
-      ),
+      );
+  }
+
+  Widget _buildFullScreen(BuildContext context) {
+    return Stack(
+      children: [
+        // Background immersive gradient
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.4),
+                Colors.black.withOpacity(0.7),
+                Colors.black.withOpacity(0.9),
+              ],
+            ),
+          ),
+        ),
+        
+        // Progress fill (subtle)
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => FractionallySizedBox(
+              alignment: Alignment.topCenter,
+              heightFactor: _isRead ? 1.0 : _controller.value,
+              child: Container(color: AppTokens.accent.withOpacity(0.05)),
+            ),
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.format_quote_rounded,
+                size: 40,
+                color: AppTokens.accent.withOpacity(0.3),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                widget.text,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      height: 1.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+              const SizedBox(height: 60),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildTickButton(context, large: true),
+                  const SizedBox(width: 24),
+                  _IconAction(
+                    icon: Icons.ios_share,
+                    isActive: false,
+                    onTap: widget.onShare,
+                  ),
+                  const SizedBox(width: 8),
+                  _IconAction(
+                    icon: widget.saved ? Icons.bookmark : Icons.bookmark_border,
+                    isActive: widget.saved,
+                    activeColor: AppTokens.accent,
+                    onTap: widget.onToggleSaved,
+                  ),
+                  const SizedBox(width: 8),
+                  _IconAction(
+                    icon: widget.liked ? Icons.favorite : Icons.favorite_border,
+                    isActive: widget.liked,
+                    activeColor: Colors.redAccent,
+                    onTap: widget.onToggleLiked,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTickButton(BuildContext context, {bool large = false}) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return GestureDetector(
+          onTap: markAsRead,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: EdgeInsets.all(large ? 12 : 5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _isRead ? AppTokens.accent.withOpacity(0.15) : Colors.transparent,
+              border: Border.all(
+                color: _isRead ? AppTokens.accent : Theme.of(context).dividerColor.withOpacity(0.4),
+                width: large ? 2.5 : 1.5,
+              ),
+            ),
+            child: Icon(
+              Icons.check,
+              size: large ? 24 : 14,
+              color: _isRead ? AppTokens.accent : AppTokens.textMuted.withOpacity(0.25),
+            ),
+          ),
+        );
+      },
     );
   }
 }

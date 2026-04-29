@@ -30,6 +30,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   
   late final List<GlobalKey<IdeaCardState>> _cardKeys;
   bool _articleCompletedRecorded = false;
+  bool _tiktokMode = false;
 
   @override
   void initState() {
@@ -40,6 +41,16 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     );
     
     _loadInitialState();
+    _loadTikTokMode();
+  }
+
+  Future<void> _loadTikTokMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _tiktokMode = prefs.getBool('openstash:prefs.tiktokMode') ?? false;
+      });
+    }
   }
   
   Future<void> _loadInitialState() async {
@@ -214,27 +225,29 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     final bg = Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
+      extendBodyBehindAppBar: _tiktokMode,
       backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: bg,
-        surfaceTintColor: bg,
+        backgroundColor: _tiktokMode ? Colors.transparent : bg,
+        surfaceTintColor: _tiktokMode ? Colors.transparent : bg,
         elevation: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: borderColor),
+              color: _tiktokMode ? Colors.black26 : Colors.transparent,
+              border: Border.all(color: _tiktokMode ? Colors.white24 : borderColor),
             ),
             child: IconButton(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back, size: 18),
+              icon: Icon(Icons.arrow_back, size: 18, color: _tiktokMode ? Colors.white : null),
               splashRadius: 20,
               padding: EdgeInsets.zero,
             ),
           ),
         ),
-        title: Text(
+        title: _tiktokMode ? null : Text(
           'Reading',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTokens.textMuted),
         ),
@@ -242,81 +255,92 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTokens.p24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 780),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: AppTokens.p12),
-                  Hero(
-                    tag: titleTag,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Text(
-                        widget.summary.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              height: 1.2,
-                              letterSpacing: -0.8,
-                            ),
+          if (!_tiktokMode) 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTokens.p24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 780),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: AppTokens.p12),
+                    Hero(
+                      tag: titleTag,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Text(
+                          widget.summary.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                height: 1.2,
+                                letterSpacing: -0.8,
+                              ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppTokens.p16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                       _MetaBadge(icon: Icons.person_outline, text: author),
-                       _MetaBadge(
-                         icon: Icons.lightbulb_outline, 
-                         text: '${widget.summary.points.length} Ideas',
-                         isActive: true,
-                       ),
-                       // Share button
-                       GestureDetector(
-                         onTap: () => Share.share(
-                           '${widget.summary.title}\n${widget.summary.url}',
+                    const SizedBox(height: AppTokens.p16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                         _MetaBadge(icon: Icons.person_outline, text: author),
+                         _MetaBadge(
+                           icon: Icons.lightbulb_outline, 
+                           text: '${widget.summary.points.length} Ideas',
+                           isActive: true,
                          ),
-                         child: Container(
-                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                           decoration: BoxDecoration(
-                             borderRadius: BorderRadius.circular(6),
-                             border: Border.all(color: Theme.of(context).dividerColor),
+                         // Share button
+                         GestureDetector(
+                           onTap: () => Share.share(
+                             '${widget.summary.title}\n${widget.summary.url}',
                            ),
-                           child: Row(
-                             mainAxisSize: MainAxisSize.min,
-                             children: [
-                               Icon(Icons.share_outlined, size: 14, color: AppTokens.textMuted),
-                               const SizedBox(width: 6),
-                               Text(
-                                 'Share',
-                                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                   fontWeight: FontWeight.w500,
-                                   color: AppTokens.textMuted,
+                           child: Container(
+                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                             decoration: BoxDecoration(
+                               borderRadius: BorderRadius.circular(6),
+                               border: Border.all(color: Theme.of(context).dividerColor),
+                             ),
+                             child: Row(
+                               mainAxisSize: MainAxisSize.min,
+                               children: [
+                                 Icon(Icons.share_outlined, size: 14, color: AppTokens.textMuted),
+                                 const SizedBox(width: 6),
+                                 Text(
+                                   'Share',
+                                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                     fontWeight: FontWeight.w500,
+                                     color: AppTokens.textMuted,
+                                   ),
                                  ),
-                               ),
-                             ],
+                               ],
+                             ),
                            ),
                          ),
-                       ),
-                    ],
-                  ),
-                  const SizedBox(height: AppTokens.p16),
-                  Divider(height: 1, color: borderColor),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: AppTokens.p16),
+                    Divider(height: 1, color: borderColor),
+                  ],
+                ),
               ),
             ),
-          ),
           
           Expanded(
             child: widget.summary.points.isEmpty
               ? _buildEmptyState()
-              : SingleChildScrollView(
+              : _tiktokMode 
+                ? _buildTikTokInsights(context)
+                : _buildNormalInsights(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNormalInsights(BuildContext context) {
+    return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                   child: Center(
                     child: ConstrainedBox(
@@ -374,9 +398,159 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                       ),
                     ),
                   ),
+                );
+  }
+
+  Widget _buildTikTokInsights(BuildContext context) {
+    return PageView.builder(
+      scrollDirection: Axis.vertical,
+      itemCount: widget.summary.points.length + 2, // +1 for Header, +1 for Read more
+      onPageChanged: (index) {
+        if (index > 0 && index <= widget.summary.points.length) {
+          _updateActiveReading(index - 1, 1.0);
+        } else {
+          // Cancel reading for all cards if on header or read more page
+          if (_activeReadingIndex != null) {
+            _cardKeys[_activeReadingIndex!].currentState?.cancelReading();
+            _activeReadingIndex = null;
+          }
+        }
+      },
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildTikTokHeader(context);
+        }
+        if (index == widget.summary.points.length + 1) {
+          return _buildTikTokReadMore(context);
+        }
+
+        final pointIndex = index - 1;
+        final point = widget.summary.points[pointIndex];
+        final ideaId = '${widget.summary.id}:$pointIndex';
+        final saved = _savedIdeaIds.contains(ideaId);
+        final liked = _likedIdeaIds.contains(ideaId);
+        final text = _ideaText(point);
+        final isRead = _readIdeaIndices.contains(pointIndex);
+
+        return IdeaCard(
+          key: _cardKeys[pointIndex],
+          text: text,
+          saved: saved,
+          liked: liked,
+          initialRead: isRead,
+          isFullScreen: true,
+          onRead: () => _onCardRead(pointIndex),
+          onShare: () => Share.share(text),
+          onToggleSaved: () => _toggleSaved(ideaId, text),
+          onToggleLiked: () => _toggleLiked(ideaId, text),
+        );
+      },
+    );
+  }
+
+  Widget _buildTikTokHeader(BuildContext context) {
+    final author = widget.summary.author.isEmpty ? 'Unknown' : widget.summary.author;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTokens.accent.withOpacity(0.3),
+            Colors.black,
+          ],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTokens.accent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'FEATURED ARTICLE',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              widget.summary.title,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'by $author',
+              style: const TextStyle(color: Colors.white70, fontSize: 18),
+            ),
+            const SizedBox(height: 60),
+            Row(
+              children: [
+                const Icon(Icons.lightbulb_outline, color: AppTokens.accent, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  '${widget.summary.points.length} Key Insights',
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-          ),
-        ],
+              ],
+            ),
+            const Spacer(),
+            Center(
+              child: Column(
+                children: [
+                  const Text('Swipe up to start reading', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                  const SizedBox(height: 12),
+                  const Icon(Icons.keyboard_double_arrow_up_rounded, color: Colors.white24, size: 32),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTikTokReadMore(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle_outline, size: 80, color: AppTokens.accent),
+            const SizedBox(height: 24),
+            const Text(
+              'Article Completed!',
+              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton.icon(
+              onPressed: () => _launchUrl(widget.summary.url),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Read full article'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTokens.accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Go Back', style: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        ),
       ),
     );
   }

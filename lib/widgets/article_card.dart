@@ -11,19 +11,21 @@ class ArticleCard extends StatelessWidget {
     super.key,
     required this.article,
     required this.onTap,
+    this.isFullScreen = false,
   });
 
   final SummaryItem article;
   final VoidCallback onTap;
+  final bool isFullScreen;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTokens.card.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(AppTokens.r24),
-        border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
-        boxShadow: [
+        color: isFullScreen ? Colors.transparent : AppTokens.card.withOpacity(0.6),
+        borderRadius: isFullScreen ? BorderRadius.zero : BorderRadius.circular(AppTokens.r24),
+        border: isFullScreen ? null : Border.all(color: Colors.white.withOpacity(0.06), width: 1),
+        boxShadow: isFullScreen ? null : [
           BoxShadow(
             color: Colors.black.withOpacity(0.3),
             blurRadius: 20,
@@ -32,7 +34,12 @@ class ArticleCard extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: BackdropFilter(
+      child: isFullScreen ? _buildFullScreen(context) : _buildNormalCard(context),
+    );
+  }
+
+  Widget _buildNormalCard(BuildContext context) {
+    return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Material(
           color: Colors.transparent,
@@ -162,7 +169,119 @@ class ArticleCard extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      );
+  }
+
+  Widget _buildFullScreen(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Background Image
+        if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
+          Image.network(
+            article.imageUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(color: AppTokens.cardAlt),
+          ),
+        
+        // Gradient Overlays
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.7),
+                Colors.black.withOpacity(0.2),
+                Colors.black.withOpacity(0.2),
+                Colors.black.withOpacity(0.8),
+              ],
+              stops: const [0.0, 0.3, 0.7, 1.0],
+            ),
+          ),
+        ),
+
+        // Content
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTokens.accent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  article.feedTitle ?? article.sourceDomain ?? 'Source',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                article.title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              if (article.author.isNotEmpty)
+                Text(
+                  'by ${article.author}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              const SizedBox(height: 24),
+              // Preview of points
+              if (article.points.isNotEmpty) ...[
+                Text(
+                  article.points.first.heading ?? (article.points.first.bullets.isNotEmpty ? article.points.first.bullets.first : ''),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: onTap,
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                    label: const Text('Read Insights'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTokens.accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.ios_share_rounded, color: Colors.white),
+                    onPressed: () => Share.share('${article.title}\n${article.url}'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.public_rounded, color: Colors.white),
+                    onPressed: () => _launchUrl(article.url),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

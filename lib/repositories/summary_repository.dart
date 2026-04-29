@@ -79,7 +79,11 @@ class SummaryRepository {
   /// Force a full fetch from the API, bypassing the daily schedule gate.
   /// Use this after calling /api/refresh to ensure local data is up to date.
   Future<List<SummaryItem>> forceRefreshFeed() async {
-    return _fetchAllPages();
+    return _fetchFirstPage();
+  }
+
+  Future<SummariesPage> getSummariesPage({int page = 1, int limit = 10}) async {
+    return _api.getSummaries(page: page, limit: limit);
   }
 
   Future<List<SummaryItem>> _refreshFeedIfDueImpl() async {
@@ -89,37 +93,20 @@ class SummaryRepository {
         return _store.getCachedFeed();
       }
 
-      return await _fetchAllPages();
+      return await _fetchFirstPage();
     } finally {
       _refreshInFlight = null;
     }
   }
 
-  Future<List<SummaryItem>> _fetchAllPages() async {
-    const limit = 100;
-    const maxPages = 50;
+  Future<List<SummaryItem>> _fetchFirstPage() async {
+    const limit = 10;
+    final page = await _api.getSummaries(page: 1, limit: limit);
+    final items = page.items.where((item) => item.id.isNotEmpty).toList();
 
-    var pageNum = 1;
-    var hasNext = true;
-
-    final seenIds = <String>{};
-    final all = <SummaryItem>[];
-
-    while (hasNext && pageNum <= maxPages) {
-      final page = await _api.getSummaries(page: pageNum, limit: limit);
-
-      for (final item in page.items) {
-        if (item.id.isEmpty) continue;
-        if (seenIds.add(item.id)) all.add(item);
-      }
-
-      hasNext = page.pageInfo.hasNext && page.items.isNotEmpty;
-      pageNum++;
-    }
-
-    await _store.setCachedFeed(all);
+    await _store.setCachedFeed(items);
     await _store.setLastRefreshAt(_now());
-    return List<SummaryItem>.unmodifiable(all);
+    return List<SummaryItem>.unmodifiable(items);
   }
 
   Future<DateTime?> getLastRefreshAt() => _store.getLastRefreshAt();
@@ -131,6 +118,9 @@ class SummaryRepository {
     final tomorrow = base.add(const Duration(days: 1));
     return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, refreshHour, refreshMinute);
   }
+
+  Future<bool> getTikTokMode() => _store.getTikTokMode();
+  Future<void> setTikTokMode(bool enabled) => _store.setTikTokMode(enabled);
 
   FutureOr<void> dispose() {}
 
