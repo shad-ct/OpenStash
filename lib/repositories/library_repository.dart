@@ -21,6 +21,17 @@ class LibraryRepository {
     final id = await _db.into(_db.folders).insert(folder);
     return (await _db.select(_db.folders)..where((tbl) => tbl.id.equals(id))).getSingle();
   }
+
+  Future<void> updateFolder(int id, String name) async {
+    await (_db.update(_db.folders)..where((tbl) => tbl.id.equals(id))).write(FoldersCompanion(name: Value(name)));
+  }
+
+  Future<void> deleteFolder(int id) async {
+    await _db.transaction(() async {
+      await (_db.delete(_db.savedIdeas)..where((tbl) => tbl.folderId.equals(id))).go();
+      await (_db.delete(_db.folders)..where((tbl) => tbl.id.equals(id))).go();
+    });
+  }
   
   Future<Folder?> getDefaultFolder() async {
     final query = _db.select(_db.folders)..where((tbl) => tbl.isDefault.equals(true));

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
@@ -275,49 +276,68 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final slivers = <Widget>[
-      const SliverToBoxAdapter(child: SizedBox(height: AppTokens.p8)),
-      SliverToBoxAdapter(
-        child: SearchBarWidget(
-          onTap: () {
-            if (_selectedGroup != null) {
-              setState(() {
-                _selectedGroup = null;
-              });
-            }
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Search (coming soon)')),
-            );
-          },
+      SliverAppBar(
+        pinned: true,
+        floating: false,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        elevation: 0,
+        toolbarHeight: 70,
+        titleSpacing: 0,
+        title: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: _selectedGroup == null
+                  ? SearchBarWidget(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Search (coming soon)')),
+                        );
+                      },
+                    )
+                  : Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () {
+                            setState(() {
+                              _selectedGroup = null;
+                            });
+                          },
+                        ),
+                        Text(
+                          '$_selectedGroup',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: AppTokens.p16)),
       
-      // Show group selection or articles
+      // Show "Explore by category" label only when no group is selected
       if (_selectedGroup == null)
         SliverToBoxAdapter(
-          child: Text(
-            'Explore by category',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        )
-      else
-        SliverToBoxAdapter(
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  setState(() {
-                    _selectedGroup = null;
-                  });
-                },
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: AppTokens.p12),
+            child: Text(
+              'Explore by category',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.9),
               ),
-              Text('$_selectedGroup', style: Theme.of(context).textTheme.titleMedium),
-            ],
+            ),
           ),
         ),
-      
-      const SliverToBoxAdapter(child: SizedBox(height: AppTokens.p8)),
       
       // Group selection grid
       if (_selectedGroup == null)
@@ -356,73 +376,114 @@ class _ExploreScreenState extends State<ExploreScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppTokens.p8),
               _filteredArticles.isEmpty
-                  ? const Text('No articles found in this category.')
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 40),
+                        child: Text('No articles found in this category.'),
+                      ),
+                    )
                   : ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _filteredArticles.length,
                       itemBuilder: (context, index) {
                         final article = _filteredArticles[index];
-                        return Card(
-                          color: AppTokens.card,
+                        // Alternating background colors for differentiation
+                        final isEven = index % 2 == 0;
+                        final cardColor = isEven 
+                            ? AppTokens.card.withOpacity(0.6) 
+                            : AppTokens.cardAlt.withOpacity(0.4);
+                        
+                        return Container(
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  article.title,
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  article.author,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: article.categories
-                                      .map((cat) => Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppTokens.accent.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          cat,
-                                          style: Theme.of(context).textTheme.labelSmall,
-                                        ),
-                                      ))
-                                      .toList(),
-                                ),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => ArticleDetailScreen(summary: article),
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.arrow_forward, size: 16),
-                                    label: const Text('Read'),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isEven 
+                                  ? Colors.white.withOpacity(0.06) 
+                                  : AppTokens.accent.withOpacity(0.05),
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => ArticleDetailScreen(summary: article),
                                     ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        article.title,
+                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                          height: 1.3,
+                                          color: Colors.white.withOpacity(0.95),
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.person_outline, size: 14, color: AppTokens.textMuted),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              article.author.isEmpty ? 'Unknown Author' : article.author,
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: AppTokens.textMuted,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: article.categories
+                                            .map((cat) => Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: isEven 
+                                                    ? AppTokens.accent.withOpacity(0.12)
+                                                    : Colors.white.withOpacity(0.05),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: isEven 
+                                                      ? AppTokens.accent.withOpacity(0.2)
+                                                      : Colors.white.withOpacity(0.08),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                cat,
+                                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                                  fontSize: 10,
+                                                  color: isEven ? AppTokens.accent : AppTokens.textMuted,
+                                                ),
+                                              ),
+                                            ))
+                                            .toList(),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         );
@@ -450,6 +511,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             key: const PageStorageKey('explore_scroll'),
             slivers: [
               ...slivers,
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
             ],
           ),
         ),

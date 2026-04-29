@@ -14,6 +14,7 @@ import '../api/models/summary.dart';
 import '../repositories/summary_repository.dart';
 import '../repositories/streak_repository.dart';
 import 'article_detail_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -49,10 +50,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Shadcn-like background color
-    final backgroundColor = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF09090B) // Zinc 950
-        : const Color(0xFFFFFFFF); // White
 
     final body = switch (_state) {
       _HomeUiState.loading => _LoadingFeed(key: const ValueKey('home_loading')),
@@ -65,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     };
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -91,10 +88,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onTapRefresh: _fetchFromMongo,
                     onTapProfile: _openSettings,
                   ),
-                  const SizedBox(height: AppTokens.p16),
-                  // Shadcn: Subtle separator
-                  Divider(height: 1, color: Theme.of(context).dividerColor.withOpacity(0.5)),
-                  const SizedBox(height: AppTokens.p16),
+                  const SizedBox(height: AppTokens.p24),
                   Expanded(
                     child: widget.testMode
                         ? body
@@ -636,7 +630,7 @@ class _ContentFeed extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       key: const PageStorageKey('home_feed'),
-      padding: const EdgeInsets.only(bottom: AppTokens.p16),
+      padding: const EdgeInsets.only(bottom: 120),
       itemCount: items.length + (offline ? 1 : 0),
       separatorBuilder: (_, __) => const SizedBox(height: 16), // Increased spacing
       itemBuilder: (context, index) {
@@ -659,7 +653,9 @@ class _ContentFeed extends StatelessWidget {
               }
             });
           },
-        );
+        ).animate()
+         .fadeIn(duration: 500.ms, curve: Curves.easeOut)
+         .slideY(begin: 0.1, end: 0, duration: 500.ms, curve: Curves.easeOutCirc);
       },
     );
   }

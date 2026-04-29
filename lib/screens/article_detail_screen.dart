@@ -9,6 +9,7 @@ import '../theme/tokens.dart';
 import '../widgets/idea_card.dart';
 import '../repositories/streak_repository.dart';
 import '../repositories/library_repository.dart';
+import '../database/database.dart';
 
 class ArticleDetailScreen extends StatefulWidget {
   const ArticleDetailScreen({
@@ -142,26 +143,44 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       setState(() {
         _savedIdeaIds.remove(ideaId);
       });
-    } else {
-      // For now, save to default folder. You can add a folder picker bottom sheet here later.
-      final defaultFolder = await libraryRepository.getDefaultFolder();
-      if (defaultFolder != null) {
-        await libraryRepository.saveIdea(
-          ideaId: ideaId,
-          articleId: widget.summary.id,
-          articleTitle: widget.summary.title,
-          articleUrl: widget.summary.url,
-          textContent: text,
-          folderId: defaultFolder.id,
+      return;
+    }
+
+    // Show folder picker
+    final folders = await libraryRepository.getFolders();
+    if (!mounted) return;
+
+    Folder? selectedFolder = await showModalBottomSheet<Folder>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _FolderPickerSheet(folders: folders),
+    );
+
+    // If dismissed, default to "Read Later" (first default folder found)
+    if (selectedFolder == null) {
+      selectedFolder = await libraryRepository.getDefaultFolder();
+    }
+
+    if (selectedFolder != null) {
+      await libraryRepository.saveIdea(
+        ideaId: ideaId,
+        articleId: widget.summary.id,
+        articleTitle: widget.summary.title,
+        articleUrl: widget.summary.url,
+        textContent: text,
+        folderId: selectedFolder.id,
+      );
+      setState(() {
+        _savedIdeaIds.add(ideaId);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved to ${selectedFolder!.name}'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
-        setState(() {
-          _savedIdeaIds.add(ideaId);
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saved to Read Later')),
-          );
-        }
       }
     }
   }
@@ -297,65 +316,64 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           Expanded(
             child: widget.summary.points.isEmpty
               ? _buildEmptyState()
-              : ListView.separated(
+              : SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                  itemCount: widget.summary.points.length + 1, // +1 for "Read More" button
-                  separatorBuilder: (context, index) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    if (index == widget.summary.points.length) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-                        child: Center(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _launchUrl(widget.summary.url),
-                            icon: const Icon(Icons.open_in_new, size: 16),
-                            label: const Text('Read full article'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTokens.accent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 780),
+                      child: Column(
+                        children: [
+                          ...List.generate(widget.summary.points.length, (index) {
+                            final point = widget.summary.points[index];
+                            final ideaId = '${widget.summary.id}:$index';
+                            final saved = _savedIdeaIds.contains(ideaId);
+                            final liked = _likedIdeaIds.contains(ideaId);
+                            final text = _ideaText(point);
+                            final isRead = _readIdeaIndices.contains(index);
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: VisibilityDetector(
+                                key: Key(ideaId),
+                                onVisibilityChanged: (info) {
+                                  _updateActiveReading(index, info.visibleFraction);
+                                },
+                                child: IdeaCard(
+                                  key: _cardKeys[index],
+                                  text: text,
+                                  saved: saved,
+                                  liked: liked,
+                                  initialRead: isRead,
+                                  onRead: () => _onCardRead(index),
+                                  onShare: () {
+                                    Share.share(text);
+                                  },
+                                  onToggleSaved: () => _toggleSaved(ideaId, text),
+                                  onToggleLiked: () => _toggleLiked(ideaId, text),
+                                ),
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24.0),
+                            child: ElevatedButton.icon(
+                              onPressed: () => _launchUrl(widget.summary.url),
+                              icon: const Icon(Icons.open_in_new, size: 16),
+                              label: const Text('Read full article'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTokens.accent,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }
-
-                    final point = widget.summary.points[index];
-                    final ideaId = '${widget.summary.id}:$index';
-                    final saved = _savedIdeaIds.contains(ideaId);
-                    final liked = _likedIdeaIds.contains(ideaId);
-                    final text = _ideaText(point);
-                    final isRead = _readIdeaIndices.contains(index);
-
-                    return Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 780),
-                        child: VisibilityDetector(
-                          key: Key(ideaId),
-                          onVisibilityChanged: (info) {
-                            _updateActiveReading(index, info.visibleFraction);
-                          },
-                          child: IdeaCard(
-                            key: _cardKeys[index],
-                            text: text,
-                            saved: saved,
-                            liked: liked,
-                            initialRead: isRead,
-                            onRead: () => _onCardRead(index),
-                            onShare: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Share (coming soon)')),
-                              );
-                            },
-                            onToggleSaved: () => _toggleSaved(ideaId, text),
-                            onToggleLiked: () => _toggleLiked(ideaId, text),
-                          ),
-                        ),
+                          const SizedBox(height: 40),
+                        ],
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
           ),
         ],
@@ -405,11 +423,15 @@ class _MetaBadge extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: fg),
           const SizedBox(width: 6),
-          Text(
-            text,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: fg,
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: fg,
+              ),
             ),
           ),
         ],
@@ -432,4 +454,145 @@ String _ideaText(SummaryPoint point) {
   }
 
   return heading.isEmpty ? '—' : heading;
+}
+
+class _FolderPickerSheet extends StatefulWidget {
+  const _FolderPickerSheet({required this.folders});
+  final List<Folder> folders;
+
+  @override
+  State<_FolderPickerSheet> createState() => _FolderPickerSheetState();
+}
+
+class _FolderPickerSheetState extends State<_FolderPickerSheet> {
+  late List<Folder> _localFolders;
+
+  @override
+  void initState() {
+    super.initState();
+    _localFolders = List.from(widget.folders);
+  }
+
+  Future<void> _createNewFolder() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTokens.card,
+        title: const Text('New Category', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Enter name...',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: AppTokens.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTokens.accent),
+            child: const Text('Create', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (name != null && name.trim().isNotEmpty) {
+      await libraryRepository.createFolder(name.trim());
+      final updated = await libraryRepository.getFolders();
+      if (mounted) {
+        setState(() {
+          _localFolders = updated;
+        });
+        // Auto-select the newly created folder (usually the last one or by name)
+        final newFolder = updated.firstWhere((f) => f.name == name.trim(), orElse: () => updated.last);
+        Navigator.pop(context, newFolder);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTokens.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.folder_outlined, color: AppTokens.accent),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Select Category',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  onPressed: _createNewFolder,
+                  icon: const Icon(Icons.add_circle_outline, color: AppTokens.accent),
+                  tooltip: 'New Category',
+                ),
+              ],
+            ),
+          ),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _localFolders.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return ListTile(
+                    leading: const Icon(Icons.add, color: AppTokens.accent),
+                    title: const Text('Create New Category', style: TextStyle(color: AppTokens.accent, fontWeight: FontWeight.w600)),
+                    onTap: _createNewFolder,
+                  );
+                }
+                final folder = _localFolders[index - 1];
+                return ListTile(
+                  leading: Icon(
+                    folder.isDefault ? Icons.bookmark_outline : Icons.folder_open,
+                    color: AppTokens.textMuted,
+                  ),
+                  title: Text(folder.name),
+                  onTap: () => Navigator.pop(context, folder),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
 }

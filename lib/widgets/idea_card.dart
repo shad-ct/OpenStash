@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
@@ -30,11 +31,14 @@ class IdeaCard extends StatefulWidget {
   State<IdeaCard> createState() => IdeaCardState();
 }
 
-class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin {
+class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final AnimationController _controller;
   late bool _isRead;
   // True once 4s is done — never goes back to false (persists across scroll).
   bool _timerDone = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -58,6 +62,23 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin 
         widget.onRead?.call();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(IdeaCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the parent updates the read status (e.g. after async load), sync internal state.
+    if (widget.initialRead != oldWidget.initialRead) {
+      setState(() {
+        _isRead = widget.initialRead;
+        _timerDone = _isRead;
+        if (_isRead) {
+          _controller.value = 1.0;
+        } else {
+          _controller.value = 0.0;
+        }
+      });
+    }
   }
 
   @override
@@ -94,17 +115,20 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = Theme.of(context).dividerColor.withOpacity(0.6);
-    final bg = Theme.of(context).cardColor;
+    super.build(context);
+    final borderColor = Colors.white.withOpacity(0.06);
+    final bg = AppTokens.card.withOpacity(0.6);
 
     return Container(
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(AppTokens.r12),
+        borderRadius: BorderRadius.circular(AppTokens.r16),
         border: Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Stack(
         children: [
           // Animated fill progress
           Positioned.fill(
@@ -215,6 +239,7 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin 
             ),
           ),
         ],
+      ),
       ),
     );
   }

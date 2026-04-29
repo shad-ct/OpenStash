@@ -1,9 +1,13 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/tokens.dart';
 import '../repositories/library_repository.dart';
 import '../database/database.dart';
+import '../api/api_client.dart';
+import '../repositories/summary_repository.dart';
+import 'article_detail_screen.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
@@ -76,21 +80,97 @@ class _SavedTabState extends State<_SavedTab> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('New Folder'),
+        backgroundColor: AppTokens.card,
+        title: const Text('New Folder', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: 'Folder Name'),
           autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Folder Name',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Create')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            style: TextButton.styleFrom(foregroundColor: AppTokens.accent),
+            child: const Text('Create'),
+          ),
         ],
       ),
     );
 
     if (name != null && name.trim().isNotEmpty) {
       await libraryRepository.createFolder(name.trim());
+      _loadFolders();
+    }
+  }
+
+  Future<void> _editFolder(Folder folder) async {
+    final controller = TextEditingController(text: folder.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTokens.card,
+        title: const Text('Rename Folder', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Folder Name',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            style: TextButton.styleFrom(foregroundColor: AppTokens.accent),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (name != null && name.trim().isNotEmpty && name.trim() != folder.name) {
+      await libraryRepository.updateFolder(folder.id, name.trim());
+      _loadFolders();
+    }
+  }
+
+  Future<void> _deleteFolder(Folder folder) async {
+    if (folder.isDefault) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Default folder cannot be deleted.')),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTokens.card,
+        title: const Text('Delete Folder?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'This will permanently delete "${folder.name}" and all ideas inside it.',
+          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await libraryRepository.deleteFolder(folder.id);
       _loadFolders();
     }
   }
@@ -102,23 +182,63 @@ class _SavedTabState extends State<_SavedTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
         itemCount: _folders.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final folder = _folders[index];
           return ListTile(
-            tileColor: Theme.of(context).cardColor,
+            tileColor: Theme.of(context).cardColor.withOpacity(0.4),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.white.withOpacity(0.06)),
             ),
             leading: Icon(
-              folder.isDefault ? Icons.bookmark : Icons.folder,
-              color: AppTokens.textMuted,
+              folder.isDefault ? Icons.bookmark_rounded : Icons.folder_rounded,
+              color: folder.isDefault ? AppTokens.accent : AppTokens.textMuted,
             ),
-            title: Text(folder.name),
-            trailing: const Icon(Icons.chevron_right),
+            title: Text(
+              folder.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  color: AppTokens.card,
+                  surfaceTintColor: Colors.transparent,
+                  onSelected: (value) {
+                    if (value == 'edit') _editFolder(folder);
+                    if (value == 'delete') _deleteFolder(folder);
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 12),
+                          Text('Rename'),
+                        ],
+                      ),
+                    ),
+                    if (!folder.isDefault)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                            SizedBox(width: 12),
+                            Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const Icon(Icons.chevron_right, size: 20),
+              ],
+            ),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => FolderScreen(folder: folder)),
@@ -127,11 +247,14 @@ class _SavedTabState extends State<_SavedTab> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createFolder,
-        backgroundColor: AppTokens.accent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.create_new_folder),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90),
+        child: FloatingActionButton(
+          onPressed: _createFolder,
+          backgroundColor: AppTokens.accent,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.create_new_folder),
+        ),
       ),
     );
   }
@@ -162,12 +285,13 @@ class FolderScreen extends StatelessWidget {
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
             itemCount: ideas.length,
             separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final idea = ideas[index];
               return _IdeaListItem(
+                articleId: idea.articleId,
                 articleTitle: idea.articleTitle,
                 textContent: idea.textContent,
                 articleUrl: idea.articleUrl,
@@ -199,12 +323,13 @@ class _LikedTab extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
           itemCount: ideas.length,
           separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             final idea = ideas[index];
             return _IdeaListItem(
+              articleId: idea.articleId,
               articleTitle: idea.articleTitle,
               textContent: idea.textContent,
               articleUrl: idea.articleUrl,
@@ -220,6 +345,7 @@ class _LikedTab extends StatelessWidget {
 
 class _IdeaListItem extends StatelessWidget {
   const _IdeaListItem({
+    required this.articleId,
     required this.articleTitle,
     required this.textContent,
     required this.articleUrl,
@@ -227,6 +353,7 @@ class _IdeaListItem extends StatelessWidget {
     required this.icon,
   });
 
+  final String articleId;
   final String articleTitle;
   final String textContent;
   final String articleUrl;
@@ -240,16 +367,38 @@ class _IdeaListItem extends StatelessWidget {
     }
   }
 
+  Future<void> _navigateToFullArticle(BuildContext context) async {
+    final repo = SummaryRepository(api: ApiClient());
+    final cached = await repo.loadFeedFromCache();
+    final article = cached.where((a) => a.id == articleId).firstOrNull;
+    
+    if (context.mounted) {
+      if (article != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => ArticleDetailScreen(summary: article)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Article no longer available locally.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        color: Theme.of(context).cardColor.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
+      clipBehavior: Clip.antiAlias,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -279,20 +428,37 @@ class _IdeaListItem extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
           ),
           const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _launchUrl(articleUrl),
-              icon: const Icon(Icons.open_in_new, size: 14),
-              label: const Text('Read Article', style: TextStyle(fontSize: 12)),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () => _navigateToFullArticle(context),
+                icon: const Icon(Icons.article_outlined, size: 14),
+                label: const Text('Full Article', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: AppTokens.accent,
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              TextButton.icon(
+                onPressed: () => _launchUrl(articleUrl),
+                icon: const Icon(Icons.open_in_new, size: 14),
+                label: const Text('Source URL', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: AppTokens.textMuted,
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+      ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
@@ -45,6 +46,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: PageStorage(
         bucket: _bucket,
         child: IndexedStack(
@@ -52,14 +54,58 @@ class _AppShellState extends State<AppShell> {
           children: _screens,
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: 'Explore'),
-          BottomNavigationBarItem(icon: Icon(Icons.library_books_outlined), label: 'Library'),
-        ],
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(32),
+          color: const Color(0xFF1D1D24).withOpacity(0.65),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+            BoxShadow(
+              color: const Color(0xFF8B5CF6).withOpacity(0.1),
+              blurRadius: 20,
+              spreadRadius: 2,
+            )
+          ],
+          border: Border.all(
+            color: Colors.white.withOpacity(0.08),
+            width: 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: BottomNavigationBar(
+              currentIndex: _index,
+              onTap: (i) => setState(() => _index = i),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white54,
+              showSelectedLabels: false,
+              showUnselectedLabels: false,
+              items: [
+                BottomNavigationBarItem(
+                  icon: Icon(_index == 0 ? Icons.home_rounded : Icons.home_outlined), 
+                  label: 'Home'
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(_index == 1 ? Icons.explore_rounded : Icons.explore_outlined), 
+                  label: 'Explore'
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(_index == 2 ? Icons.library_books_rounded : Icons.library_books_outlined), 
+                  label: 'Library'
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

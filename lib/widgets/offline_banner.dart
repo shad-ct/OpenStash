@@ -28,7 +28,7 @@ class OfflineBanner extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Showing saved content. Refresh happens once daily at 9:00 AM.',
+              'Showing saved content. Refresh happens at 9:00 AM.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w500,
