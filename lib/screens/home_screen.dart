@@ -67,8 +67,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           tiktokMode: _tiktokMode,
           scrollController: _scrollController,
           onLoadMore: _loadMore,
-          onLoadPrevious: _loadPrevious,
-          currentPage: _currentPage,
           hasMore: _hasMore,
           isLoadingMore: _isLoadingMore,
         ),
@@ -213,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!mounted) return;
 
     setState(() {
-      _items = List<SummaryItem>.from(cached.take(10));
+      _items = List<SummaryItem>.from(cached);
       _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
       // Default to showing the "saved content" banner unless we successfully refresh.
       _offline = true;
@@ -230,50 +228,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _onScroll() {
-    // Automatic pagination disabled as per user request for a manual "Next" button
+    if (_tiktokMode) return; // TikTok mode uses PageView.onPageChanged
+    
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
   }
 
   Future<void> _loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
-    _loadPage(_currentPage + 1);
-  }
-
-  Future<void> _loadPrevious() async {
-    if (_isLoadingMore || _currentPage <= 1) return;
-    _loadPage(_currentPage - 1);
-  }
-
-  Future<void> _loadPage(int nextPage) async {
     setState(() => _isLoadingMore = true);
     
     try {
+      final nextPage = _currentPage + 1;
       final page = await _repo.getSummariesPage(page: nextPage);
       
       if (mounted) {
         setState(() {
           final newItems = page.items.where((item) => item.id.isNotEmpty).toList();
-          _items = List<SummaryItem>.from(newItems);
+          _items.addAll(newItems);
           _currentPage = nextPage;
           _hasMore = page.pageInfo.hasNext && newItems.isNotEmpty;
           _isLoadingMore = false;
         });
-        
-        // Scroll to top when page changes
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            0, 
-            duration: const Duration(milliseconds: 400), 
-            curve: Curves.easeOutCubic,
-          );
-        }
       }
     } catch (_) {
-      if (mounted) {
-        setState(() => _isLoadingMore = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load page. Please try again.')),
-        );
-      }
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -397,7 +377,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           onTikTokModeChanged: (val) async {
             await _repo.setTikTokMode(val);
             if (mounted) {
-              setState(() => _tiktokMode = val);
+              setState(() {
+                _tiktokMode = val;
+                // If switching back to standard mode, reset items to the first 10
+                _tiktokMode = val;
+              });
               setSheetState(() {}); // Rebuild the sheet to show toggle change
             }
           },
@@ -730,59 +714,34 @@ class _ContentFeed extends StatelessWidget {
     required this.items,
     this.tiktokMode = false,
     this.scrollController,
-    this.currentPage = 1,
     this.isLoadingMore = false,
     this.hasMore = true,
     this.onLoadMore,
-    this.onLoadPrevious,
   });
 
   final bool offline;
   final List<SummaryItem> items;
   final bool tiktokMode;
   final ScrollController? scrollController;
-  final int currentPage;
   final bool isLoadingMore;
   final bool hasMore;
   final VoidCallback? onLoadMore;
-  final VoidCallback? onLoadPrevious;
 
   @override
   Widget build(BuildContext context) {
     if (tiktokMode) {
       return PageView.builder(
         scrollDirection: Axis.vertical,
-        itemCount: items.length + (hasMore || currentPage > 1 ? 1 : 0),
+        itemCount: items.length + (hasMore ? 1 : 0),
+        onPageChanged: (index) {
+          if (index >= items.length - 1 && hasMore && !isLoadingMore) {
+            onLoadMore?.call();
+          }
+        },
         itemBuilder: (context, index) {
           if (index >= items.length) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isLoadingMore)
-                      const CircularProgressIndicator()
-                    else ...[
-                      if (hasMore)
-                        _PaginationButton(
-                          label: 'Next Page',
-                          icon: Icons.arrow_forward_rounded,
-                          onPressed: onLoadMore,
-                          isPrimary: true,
-                        ),
-                      if (currentPage > 1) ...[
-                        const SizedBox(height: 16),
-                        _PaginationButton(
-                          label: 'Previous Page',
-                          icon: Icons.arrow_back_rounded,
-                          onPressed: onLoadPrevious,
-                        ),
-                      ],
-                    ],
-                  ],
-                ),
-              ),
+            return const Center(
+              child: CircularProgressIndicator(),
             );
           }
           final summary = items[index];
@@ -812,37 +771,9 @@ class _ContentFeed extends StatelessWidget {
         }
 
         if (index >= items.length) {
-          if (isLoadingMore) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
-            child: Row(
-              children: [
-                if (currentPage > 1)
-                  Expanded(
-                    child: _PaginationButton(
-                      label: 'Previous',
-                      icon: Icons.arrow_back_rounded,
-                      onPressed: isLoadingMore ? null : onLoadPrevious,
-                    ),
-                  ),
-                if (currentPage > 1 && hasMore) const SizedBox(width: 12),
-                if (hasMore)
-                  Expanded(
-                    child: _PaginationButton(
-                      label: 'Next',
-                      icon: Icons.arrow_forward_rounded,
-                      onPressed: isLoadingMore ? null : onLoadMore,
-                      isPrimary: true,
-                    ),
-                  ),
-              ],
-            ),
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -934,41 +865,4 @@ class _EmptyFeed extends StatelessWidget {
       ),
     );
   }
-}
-
-class _PaginationButton extends StatelessWidget {
-  const _PaginationButton({
-    required this.label,
-    required this.icon,
-    this.onPressed,
-    this.isPrimary = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
-  final bool isPrimary;
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary 
-            ? AppTokens.accent.withOpacity(0.15)
-            : Colors.transparent,
-        foregroundColor: AppTokens.accent,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        side: BorderSide(
-          color: isPrimary 
-              ? AppTokens.accent.withOpacity(0.4) 
-              : AppTokens.accent.withOpacity(0.2),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 0,
-      ),
-    );
-  }
-}
+}

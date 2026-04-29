@@ -243,55 +243,63 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin,
           ),
         ),
 
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.format_quote_rounded,
-                size: 40,
-                color: AppTokens.accent.withOpacity(0.3),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                widget.text,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      height: 1.5,
-                      fontWeight: FontWeight.w500,
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.format_quote_rounded,
+                  size: 32,
+                  color: AppTokens.accent.withOpacity(0.3),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Text(
+                      widget.text,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            height: 1.6,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
                     ),
-              ),
-              const SizedBox(height: 60),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildTickButton(context, large: true),
-                  const SizedBox(width: 24),
-                  _IconAction(
-                    icon: Icons.ios_share,
-                    isActive: false,
-                    onTap: widget.onShare,
                   ),
-                  const SizedBox(width: 8),
-                  _IconAction(
-                    icon: widget.saved ? Icons.bookmark : Icons.bookmark_border,
-                    isActive: widget.saved,
-                    activeColor: AppTokens.accent,
-                    onTap: widget.onToggleSaved,
-                  ),
-                  const SizedBox(width: 8),
-                  _IconAction(
-                    icon: widget.liked ? Icons.favorite : Icons.favorite_border,
-                    isActive: widget.liked,
-                    activeColor: Colors.redAccent,
-                    onTap: widget.onToggleLiked,
-                  ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 32),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildTickButton(context, large: true),
+                    const SizedBox(width: 24),
+                    _IconAction(
+                      icon: Icons.ios_share,
+                      isActive: false,
+                      onTap: widget.onShare,
+                    ),
+                    const SizedBox(width: 8),
+                    _IconAction(
+                      icon: widget.saved ? Icons.bookmark : Icons.bookmark_border,
+                      isActive: widget.saved,
+                      activeColor: AppTokens.accent,
+                      onTap: widget.onToggleSaved,
+                    ),
+                    const SizedBox(width: 8),
+                    _IconAction(
+                      icon: widget.liked ? Icons.favorite : Icons.favorite_border,
+                      isActive: widget.liked,
+                      activeColor: Colors.redAccent,
+                      onTap: widget.onToggleLiked,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ],

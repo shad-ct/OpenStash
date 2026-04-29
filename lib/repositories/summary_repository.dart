@@ -82,7 +82,7 @@ class SummaryRepository {
     return _fetchFirstPage();
   }
 
-  Future<SummariesPage> getSummariesPage({int page = 1, int limit = 10}) async {
+  Future<SummariesPage> getSummariesPage({int page = 1, int limit = 20}) async {
     return _api.getSummaries(page: page, limit: limit);
   }
 
@@ -100,7 +100,7 @@ class SummaryRepository {
   }
 
   Future<List<SummaryItem>> _fetchFirstPage() async {
-    const limit = 10;
+    const limit = 20;
     final page = await _api.getSummaries(page: 1, limit: limit);
     final items = page.items.where((item) => item.id.isNotEmpty).toList();
 
