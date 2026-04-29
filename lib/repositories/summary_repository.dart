@@ -76,6 +76,12 @@ class SummaryRepository {
     return _refreshInFlight!;
   }
 
+  /// Force a full fetch from the API, bypassing the daily schedule gate.
+  /// Use this after calling /api/refresh to ensure local data is up to date.
+  Future<List<SummaryItem>> forceRefreshFeed() async {
+    return _fetchAllPages();
+  }
+
   Future<List<SummaryItem>> _refreshFeedIfDueImpl() async {
     try {
       final decision = await canRefreshNow();
@@ -83,33 +89,37 @@ class SummaryRepository {
         return _store.getCachedFeed();
       }
 
-      const limit = 100;
-      const maxPages = 50;
-
-      var pageNum = 1;
-      var hasNext = true;
-
-      final seenIds = <String>{};
-      final all = <SummaryItem>[];
-
-      while (hasNext && pageNum <= maxPages) {
-        final page = await _api.getSummaries(page: pageNum, limit: limit);
-
-        for (final item in page.items) {
-          if (item.id.isEmpty) continue;
-          if (seenIds.add(item.id)) all.add(item);
-        }
-
-        hasNext = page.pageInfo.hasNext && page.items.isNotEmpty;
-        pageNum++;
-      }
-
-      await _store.setCachedFeed(all);
-      await _store.setLastRefreshAt(_now());
-      return List<SummaryItem>.unmodifiable(all);
+      return await _fetchAllPages();
     } finally {
       _refreshInFlight = null;
     }
+  }
+
+  Future<List<SummaryItem>> _fetchAllPages() async {
+    const limit = 100;
+    const maxPages = 50;
+
+    var pageNum = 1;
+    var hasNext = true;
+
+    final seenIds = <String>{};
+    final all = <SummaryItem>[];
+
+    while (hasNext && pageNum <= maxPages) {
+      final page = await _api.getSummaries(page: pageNum, limit: limit);
+
+      for (final item in page.items) {
+        if (item.id.isEmpty) continue;
+        if (seenIds.add(item.id)) all.add(item);
+      }
+
+      hasNext = page.pageInfo.hasNext && page.items.isNotEmpty;
+      pageNum++;
+    }
+
+    await _store.setCachedFeed(all);
+    await _store.setLastRefreshAt(_now());
+    return List<SummaryItem>.unmodifiable(all);
   }
 
   Future<DateTime?> getLastRefreshAt() => _store.getLastRefreshAt();

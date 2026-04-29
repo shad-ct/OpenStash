@@ -14,7 +14,6 @@ import '../api/models/summary.dart';
 import '../repositories/summary_repository.dart';
 import '../repositories/streak_repository.dart';
 import 'article_detail_screen.dart';
-import 'library_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -46,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _isRefreshing = false;
   List<SummaryItem> _items = const <SummaryItem>[];
 
-  DateTime _lastUiUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +88,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ).then((_) => _loadStreakCount());
                     },
                     isRefreshing: _isRefreshing,
-                    onTapRefresh: _refreshBackend,
+                    onTapRefresh: _fetchFromMongo,
+                    onTapProfile: _openSettings,
                   ),
                   const SizedBox(height: AppTokens.p16),
                   // Shadcn: Subtle separator
@@ -244,6 +244,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Pulls latest articles from MongoDB via /api/summaries (no backend job triggered).
+  Future<void> _fetchFromMongo() async {
+    if (widget.testMode || _isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      final refreshed = await _repo.forceRefreshFeed();
+      if (!mounted) return;
+      setState(() {
+        _items = List<SummaryItem>.unmodifiable(refreshed);
+        _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
+        _offline = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Feed updated from MongoDB!')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not reach the server.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
   Future<void> _refreshBackend() async {
     if (widget.testMode || _isRefreshing) return;
 
@@ -256,16 +281,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
 
     try {
+      // Step 1: Tell the backend to fetch & summarise new articles
       await _api.refreshFeed(force: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Generation started! Check back soon.')),
+        const SnackBar(content: Text('Backend refreshed! Pulling latest articles...')),
       );
-      await _attemptRefreshIfDue();
+
+      // Step 2: Always pull fresh data from MongoDB, bypassing the daily gate
+      final refreshed = await _repo.forceRefreshFeed();
+      if (!mounted) return;
+
+      setState(() {
+        _items = List<SummaryItem>.unmodifiable(refreshed);
+        _state = _items.isEmpty ? _HomeUiState.empty : _HomeUiState.content;
+        _offline = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Feed updated!')),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to trigger refresh.')),
+        const SnackBar(content: Text('Failed to trigger refresh. Check your connection.')),
       );
     } finally {
       if (mounted) {
@@ -274,6 +313,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  void _openSettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SettingsSheet(
+        isRefreshing: _isRefreshing,
+        onFetchNew: () {
+          Navigator.of(context).pop();
+          _refreshBackend();
+        },
+      ),
+    );
   }
 
   void _scheduleNextRefresh() {
@@ -293,12 +347,14 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.streakCount,
     required this.onTapStreak,
+    required this.onTapProfile,
     required this.onTapRefresh,
     this.isRefreshing = false,
   });
 
   final int streakCount;
   final VoidCallback? onTapStreak;
+  final VoidCallback? onTapProfile;
   final VoidCallback? onTapRefresh;
   final bool isRefreshing;
 
@@ -328,43 +384,240 @@ class _TopBar extends StatelessWidget {
             ),
           ],
         ),
-        
+
         // Actions Area
         Row(
           children: [
-            if (isRefreshing)
-              const Padding(
-                padding: EdgeInsets.only(right: AppTokens.p12),
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.refresh, color: AppTokens.textMuted),
-                tooltip: 'Refresh Feed',
-                onPressed: onTapRefresh,
-              ),
             StreakBadge(
               key: const Key('streak_badge'),
               count: streakCount,
               onTap: onTapStreak,
             ),
-            const SizedBox(width: AppTokens.p12),
-            IconButton(
-              icon: const Icon(Icons.local_library_outlined, color: AppTokens.textMuted),
-              tooltip: 'Library',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => LibraryScreen()),
-                );
-              },
+            // Refresh button — pulls latest from /api/summaries
+            isRefreshing
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.refresh_rounded, size: 20),
+                    color: AppTokens.textMuted,
+                    tooltip: 'Refresh feed',
+                    onPressed: onTapRefresh,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+            // Profile avatar button
+            GestureDetector(
+              onTap: onTapProfile,
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceVariant,
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+// ── Settings Bottom Sheet ──────────────────────────────────────────────────────
+
+class _SettingsSheet extends StatelessWidget {
+  const _SettingsSheet({
+    required this.isRefreshing,
+    required this.onFetchNew,
+  });
+
+  final bool isRefreshing;
+  final VoidCallback onFetchNew;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF18181B) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF09090B);
+    final mutedColor = isDark
+        ? const Color(0xFF71717A)
+        : const Color(0xFF52525B);
+    final divColor = isDark
+        ? const Color(0xFF27272A)
+        : const Color(0xFFE4E4E7);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: divColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Header row
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceVariant,
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your Profile',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                  Text(
+                    'Settings & Preferences',
+                    style: TextStyle(fontSize: 13, color: mutedColor),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+          Divider(height: 1, color: divColor),
+          const SizedBox(height: 20),
+
+          // Section label
+          Text(
+            'DATA',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.1,
+              color: mutedColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Fetch New button
+          _SettingsTile(
+            icon: Icons.cloud_download_outlined,
+            label: 'Fetch New Data',
+            sublabel: 'Calls /api/refresh to generate fresh summaries',
+            trailing: isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chevron_right_rounded,
+                    size: 20, color: AppTokens.textMuted),
+            onTap: isRefreshing ? null : onFetchNew,
+          ),
+
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.label,
+    required this.sublabel,
+    required this.trailing,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String sublabel;
+  final Widget trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tileBg =
+        isDark ? const Color(0xFF27272A) : const Color(0xFFF4F4F5);
+    final textColor = isDark ? Colors.white : const Color(0xFF09090B);
+    final mutedColor =
+        isDark ? const Color(0xFF71717A) : const Color(0xFF52525B);
+
+    return Material(
+      color: tileBg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: AppTokens.textMuted),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      sublabel,
+                      style: TextStyle(fontSize: 12, color: mutedColor),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              trailing,
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

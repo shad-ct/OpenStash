@@ -41,6 +41,7 @@ dependencies:
 
   shared_preferences: ^2.3.2
   url_launcher: ^6.3.2
+  share_plus: ^10.0.0
   drift: ^2.32.1
   sqlite3_flutter_libs: ^0.6.0+eol
   path_provider: ^2.1.5

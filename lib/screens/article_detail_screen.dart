@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -130,9 +131,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   Future<void> _launchUrl(String urlString) async {
     final uri = Uri.tryParse(urlString);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _toggleSaved(String ideaId, String text) async {
@@ -189,7 +189,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final readsText = widget.summary.reads == null ? '— reads' : '${widget.summary.reads} reads';
     final author = widget.summary.author.isEmpty ? 'Unknown' : widget.summary.author;
     final borderColor = Theme.of(context).dividerColor;
     final titleTag = 'article_title_${widget.summary.id}';
@@ -254,11 +253,37 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     runSpacing: 8,
                     children: [
                        _MetaBadge(icon: Icons.person_outline, text: author),
-                       _MetaBadge(icon: Icons.bar_chart, text: readsText),
                        _MetaBadge(
                          icon: Icons.lightbulb_outline, 
                          text: '${widget.summary.points.length} Ideas',
                          isActive: true,
+                       ),
+                       // Share button
+                       GestureDetector(
+                         onTap: () => Share.share(
+                           '${widget.summary.title}\n${widget.summary.url}',
+                         ),
+                         child: Container(
+                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                           decoration: BoxDecoration(
+                             borderRadius: BorderRadius.circular(6),
+                             border: Border.all(color: Theme.of(context).dividerColor),
+                           ),
+                           child: Row(
+                             mainAxisSize: MainAxisSize.min,
+                             children: [
+                               Icon(Icons.share_outlined, size: 14, color: AppTokens.textMuted),
+                               const SizedBox(width: 6),
+                               Text(
+                                 'Share',
+                                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                   fontWeight: FontWeight.w500,
+                                   color: AppTokens.textMuted,
+                                 ),
+                               ),
+                             ],
+                           ),
+                         ),
                        ),
                     ],
                   ),
