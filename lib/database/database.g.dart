@@ -587,6 +587,17 @@ class $SavedIdeasTable extends SavedIdeas
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _imageUrlMeta = const VerificationMeta(
+    'imageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> imageUrl = GeneratedColumn<String>(
+    'image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _folderIdMeta = const VerificationMeta(
     'folderId',
   );
@@ -620,6 +631,7 @@ class $SavedIdeasTable extends SavedIdeas
     articleTitle,
     articleUrl,
     textContent,
+    imageUrl,
     folderId,
     savedAt,
   ];
@@ -686,6 +698,12 @@ class $SavedIdeasTable extends SavedIdeas
     } else if (isInserting) {
       context.missing(_textContentMeta);
     }
+    if (data.containsKey('image_url')) {
+      context.handle(
+        _imageUrlMeta,
+        imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta),
+      );
+    }
     if (data.containsKey('folder_id')) {
       context.handle(
         _folderIdMeta,
@@ -735,6 +753,10 @@ class $SavedIdeasTable extends SavedIdeas
         DriftSqlType.string,
         data['${effectivePrefix}text_content'],
       )!,
+      imageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_url'],
+      ),
       folderId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}folder_id'],
@@ -759,6 +781,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
   final String articleTitle;
   final String articleUrl;
   final String textContent;
+  final String? imageUrl;
   final int folderId;
   final DateTime savedAt;
   const SavedIdea({
@@ -768,6 +791,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
     required this.articleTitle,
     required this.articleUrl,
     required this.textContent,
+    this.imageUrl,
     required this.folderId,
     required this.savedAt,
   });
@@ -780,6 +804,9 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
     map['article_title'] = Variable<String>(articleTitle);
     map['article_url'] = Variable<String>(articleUrl);
     map['text_content'] = Variable<String>(textContent);
+    if (!nullToAbsent || imageUrl != null) {
+      map['image_url'] = Variable<String>(imageUrl);
+    }
     map['folder_id'] = Variable<int>(folderId);
     map['saved_at'] = Variable<DateTime>(savedAt);
     return map;
@@ -793,6 +820,9 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
       articleTitle: Value(articleTitle),
       articleUrl: Value(articleUrl),
       textContent: Value(textContent),
+      imageUrl: imageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUrl),
       folderId: Value(folderId),
       savedAt: Value(savedAt),
     );
@@ -810,6 +840,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
       articleTitle: serializer.fromJson<String>(json['articleTitle']),
       articleUrl: serializer.fromJson<String>(json['articleUrl']),
       textContent: serializer.fromJson<String>(json['textContent']),
+      imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       folderId: serializer.fromJson<int>(json['folderId']),
       savedAt: serializer.fromJson<DateTime>(json['savedAt']),
     );
@@ -824,6 +855,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
       'articleTitle': serializer.toJson<String>(articleTitle),
       'articleUrl': serializer.toJson<String>(articleUrl),
       'textContent': serializer.toJson<String>(textContent),
+      'imageUrl': serializer.toJson<String?>(imageUrl),
       'folderId': serializer.toJson<int>(folderId),
       'savedAt': serializer.toJson<DateTime>(savedAt),
     };
@@ -836,6 +868,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
     String? articleTitle,
     String? articleUrl,
     String? textContent,
+    Value<String?> imageUrl = const Value.absent(),
     int? folderId,
     DateTime? savedAt,
   }) => SavedIdea(
@@ -845,6 +878,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
     articleTitle: articleTitle ?? this.articleTitle,
     articleUrl: articleUrl ?? this.articleUrl,
     textContent: textContent ?? this.textContent,
+    imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
     folderId: folderId ?? this.folderId,
     savedAt: savedAt ?? this.savedAt,
   );
@@ -862,6 +896,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
       textContent: data.textContent.present
           ? data.textContent.value
           : this.textContent,
+      imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
       folderId: data.folderId.present ? data.folderId.value : this.folderId,
       savedAt: data.savedAt.present ? data.savedAt.value : this.savedAt,
     );
@@ -876,6 +911,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
           ..write('articleTitle: $articleTitle, ')
           ..write('articleUrl: $articleUrl, ')
           ..write('textContent: $textContent, ')
+          ..write('imageUrl: $imageUrl, ')
           ..write('folderId: $folderId, ')
           ..write('savedAt: $savedAt')
           ..write(')'))
@@ -890,6 +926,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
     articleTitle,
     articleUrl,
     textContent,
+    imageUrl,
     folderId,
     savedAt,
   );
@@ -903,6 +940,7 @@ class SavedIdea extends DataClass implements Insertable<SavedIdea> {
           other.articleTitle == this.articleTitle &&
           other.articleUrl == this.articleUrl &&
           other.textContent == this.textContent &&
+          other.imageUrl == this.imageUrl &&
           other.folderId == this.folderId &&
           other.savedAt == this.savedAt);
 }
@@ -914,6 +952,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
   final Value<String> articleTitle;
   final Value<String> articleUrl;
   final Value<String> textContent;
+  final Value<String?> imageUrl;
   final Value<int> folderId;
   final Value<DateTime> savedAt;
   final Value<int> rowid;
@@ -924,6 +963,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
     this.articleTitle = const Value.absent(),
     this.articleUrl = const Value.absent(),
     this.textContent = const Value.absent(),
+    this.imageUrl = const Value.absent(),
     this.folderId = const Value.absent(),
     this.savedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -935,6 +975,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
     required String articleTitle,
     required String articleUrl,
     required String textContent,
+    this.imageUrl = const Value.absent(),
     required int folderId,
     required DateTime savedAt,
     this.rowid = const Value.absent(),
@@ -953,6 +994,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
     Expression<String>? articleTitle,
     Expression<String>? articleUrl,
     Expression<String>? textContent,
+    Expression<String>? imageUrl,
     Expression<int>? folderId,
     Expression<DateTime>? savedAt,
     Expression<int>? rowid,
@@ -964,6 +1006,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
       if (articleTitle != null) 'article_title': articleTitle,
       if (articleUrl != null) 'article_url': articleUrl,
       if (textContent != null) 'text_content': textContent,
+      if (imageUrl != null) 'image_url': imageUrl,
       if (folderId != null) 'folder_id': folderId,
       if (savedAt != null) 'saved_at': savedAt,
       if (rowid != null) 'rowid': rowid,
@@ -977,6 +1020,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
     Value<String>? articleTitle,
     Value<String>? articleUrl,
     Value<String>? textContent,
+    Value<String?>? imageUrl,
     Value<int>? folderId,
     Value<DateTime>? savedAt,
     Value<int>? rowid,
@@ -988,6 +1032,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
       articleTitle: articleTitle ?? this.articleTitle,
       articleUrl: articleUrl ?? this.articleUrl,
       textContent: textContent ?? this.textContent,
+      imageUrl: imageUrl ?? this.imageUrl,
       folderId: folderId ?? this.folderId,
       savedAt: savedAt ?? this.savedAt,
       rowid: rowid ?? this.rowid,
@@ -1015,6 +1060,9 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
     if (textContent.present) {
       map['text_content'] = Variable<String>(textContent.value);
     }
+    if (imageUrl.present) {
+      map['image_url'] = Variable<String>(imageUrl.value);
+    }
     if (folderId.present) {
       map['folder_id'] = Variable<int>(folderId.value);
     }
@@ -1036,6 +1084,7 @@ class SavedIdeasCompanion extends UpdateCompanion<SavedIdea> {
           ..write('articleTitle: $articleTitle, ')
           ..write('articleUrl: $articleUrl, ')
           ..write('textContent: $textContent, ')
+          ..write('imageUrl: $imageUrl, ')
           ..write('folderId: $folderId, ')
           ..write('savedAt: $savedAt, ')
           ..write('rowid: $rowid')
@@ -1112,6 +1161,17 @@ class $LikedIdeasTable extends LikedIdeas
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _imageUrlMeta = const VerificationMeta(
+    'imageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> imageUrl = GeneratedColumn<String>(
+    'image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _likedAtMeta = const VerificationMeta(
     'likedAt',
   );
@@ -1131,6 +1191,7 @@ class $LikedIdeasTable extends LikedIdeas
     articleTitle,
     articleUrl,
     textContent,
+    imageUrl,
     likedAt,
   ];
   @override
@@ -1196,6 +1257,12 @@ class $LikedIdeasTable extends LikedIdeas
     } else if (isInserting) {
       context.missing(_textContentMeta);
     }
+    if (data.containsKey('image_url')) {
+      context.handle(
+        _imageUrlMeta,
+        imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta),
+      );
+    }
     if (data.containsKey('liked_at')) {
       context.handle(
         _likedAtMeta,
@@ -1237,6 +1304,10 @@ class $LikedIdeasTable extends LikedIdeas
         DriftSqlType.string,
         data['${effectivePrefix}text_content'],
       )!,
+      imageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_url'],
+      ),
       likedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}liked_at'],
@@ -1257,6 +1328,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
   final String articleTitle;
   final String articleUrl;
   final String textContent;
+  final String? imageUrl;
   final DateTime likedAt;
   const LikedIdea({
     required this.id,
@@ -1265,6 +1337,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
     required this.articleTitle,
     required this.articleUrl,
     required this.textContent,
+    this.imageUrl,
     required this.likedAt,
   });
   @override
@@ -1276,6 +1349,9 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
     map['article_title'] = Variable<String>(articleTitle);
     map['article_url'] = Variable<String>(articleUrl);
     map['text_content'] = Variable<String>(textContent);
+    if (!nullToAbsent || imageUrl != null) {
+      map['image_url'] = Variable<String>(imageUrl);
+    }
     map['liked_at'] = Variable<DateTime>(likedAt);
     return map;
   }
@@ -1288,6 +1364,9 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
       articleTitle: Value(articleTitle),
       articleUrl: Value(articleUrl),
       textContent: Value(textContent),
+      imageUrl: imageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUrl),
       likedAt: Value(likedAt),
     );
   }
@@ -1304,6 +1383,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
       articleTitle: serializer.fromJson<String>(json['articleTitle']),
       articleUrl: serializer.fromJson<String>(json['articleUrl']),
       textContent: serializer.fromJson<String>(json['textContent']),
+      imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       likedAt: serializer.fromJson<DateTime>(json['likedAt']),
     );
   }
@@ -1317,6 +1397,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
       'articleTitle': serializer.toJson<String>(articleTitle),
       'articleUrl': serializer.toJson<String>(articleUrl),
       'textContent': serializer.toJson<String>(textContent),
+      'imageUrl': serializer.toJson<String?>(imageUrl),
       'likedAt': serializer.toJson<DateTime>(likedAt),
     };
   }
@@ -1328,6 +1409,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
     String? articleTitle,
     String? articleUrl,
     String? textContent,
+    Value<String?> imageUrl = const Value.absent(),
     DateTime? likedAt,
   }) => LikedIdea(
     id: id ?? this.id,
@@ -1336,6 +1418,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
     articleTitle: articleTitle ?? this.articleTitle,
     articleUrl: articleUrl ?? this.articleUrl,
     textContent: textContent ?? this.textContent,
+    imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
     likedAt: likedAt ?? this.likedAt,
   );
   LikedIdea copyWithCompanion(LikedIdeasCompanion data) {
@@ -1352,6 +1435,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
       textContent: data.textContent.present
           ? data.textContent.value
           : this.textContent,
+      imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
       likedAt: data.likedAt.present ? data.likedAt.value : this.likedAt,
     );
   }
@@ -1365,6 +1449,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
           ..write('articleTitle: $articleTitle, ')
           ..write('articleUrl: $articleUrl, ')
           ..write('textContent: $textContent, ')
+          ..write('imageUrl: $imageUrl, ')
           ..write('likedAt: $likedAt')
           ..write(')'))
         .toString();
@@ -1378,6 +1463,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
     articleTitle,
     articleUrl,
     textContent,
+    imageUrl,
     likedAt,
   );
   @override
@@ -1390,6 +1476,7 @@ class LikedIdea extends DataClass implements Insertable<LikedIdea> {
           other.articleTitle == this.articleTitle &&
           other.articleUrl == this.articleUrl &&
           other.textContent == this.textContent &&
+          other.imageUrl == this.imageUrl &&
           other.likedAt == this.likedAt);
 }
 
@@ -1400,6 +1487,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
   final Value<String> articleTitle;
   final Value<String> articleUrl;
   final Value<String> textContent;
+  final Value<String?> imageUrl;
   final Value<DateTime> likedAt;
   final Value<int> rowid;
   const LikedIdeasCompanion({
@@ -1409,6 +1497,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
     this.articleTitle = const Value.absent(),
     this.articleUrl = const Value.absent(),
     this.textContent = const Value.absent(),
+    this.imageUrl = const Value.absent(),
     this.likedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1419,6 +1508,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
     required String articleTitle,
     required String articleUrl,
     required String textContent,
+    this.imageUrl = const Value.absent(),
     required DateTime likedAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1435,6 +1525,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
     Expression<String>? articleTitle,
     Expression<String>? articleUrl,
     Expression<String>? textContent,
+    Expression<String>? imageUrl,
     Expression<DateTime>? likedAt,
     Expression<int>? rowid,
   }) {
@@ -1445,6 +1536,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
       if (articleTitle != null) 'article_title': articleTitle,
       if (articleUrl != null) 'article_url': articleUrl,
       if (textContent != null) 'text_content': textContent,
+      if (imageUrl != null) 'image_url': imageUrl,
       if (likedAt != null) 'liked_at': likedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1457,6 +1549,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
     Value<String>? articleTitle,
     Value<String>? articleUrl,
     Value<String>? textContent,
+    Value<String?>? imageUrl,
     Value<DateTime>? likedAt,
     Value<int>? rowid,
   }) {
@@ -1467,6 +1560,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
       articleTitle: articleTitle ?? this.articleTitle,
       articleUrl: articleUrl ?? this.articleUrl,
       textContent: textContent ?? this.textContent,
+      imageUrl: imageUrl ?? this.imageUrl,
       likedAt: likedAt ?? this.likedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -1493,6 +1587,9 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
     if (textContent.present) {
       map['text_content'] = Variable<String>(textContent.value);
     }
+    if (imageUrl.present) {
+      map['image_url'] = Variable<String>(imageUrl.value);
+    }
     if (likedAt.present) {
       map['liked_at'] = Variable<DateTime>(likedAt.value);
     }
@@ -1511,6 +1608,7 @@ class LikedIdeasCompanion extends UpdateCompanion<LikedIdea> {
           ..write('articleTitle: $articleTitle, ')
           ..write('articleUrl: $articleUrl, ')
           ..write('textContent: $textContent, ')
+          ..write('imageUrl: $imageUrl, ')
           ..write('likedAt: $likedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1958,6 +2056,7 @@ typedef $$SavedIdeasTableCreateCompanionBuilder =
       required String articleTitle,
       required String articleUrl,
       required String textContent,
+      Value<String?> imageUrl,
       required int folderId,
       required DateTime savedAt,
       Value<int> rowid,
@@ -1970,6 +2069,7 @@ typedef $$SavedIdeasTableUpdateCompanionBuilder =
       Value<String> articleTitle,
       Value<String> articleUrl,
       Value<String> textContent,
+      Value<String?> imageUrl,
       Value<int> folderId,
       Value<DateTime> savedAt,
       Value<int> rowid,
@@ -2033,6 +2133,11 @@ class $$SavedIdeasTableFilterComposer
 
   ColumnFilters<String> get textContent => $composableBuilder(
     column: $table.textContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2104,6 +2209,11 @@ class $$SavedIdeasTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get savedAt => $composableBuilder(
     column: $table.savedAt,
     builder: (column) => ColumnOrderings(column),
@@ -2166,6 +2276,9 @@ class $$SavedIdeasTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get imageUrl =>
+      $composableBuilder(column: $table.imageUrl, builder: (column) => column);
+
   GeneratedColumn<DateTime> get savedAt =>
       $composableBuilder(column: $table.savedAt, builder: (column) => column);
 
@@ -2227,6 +2340,7 @@ class $$SavedIdeasTableTableManager
                 Value<String> articleTitle = const Value.absent(),
                 Value<String> articleUrl = const Value.absent(),
                 Value<String> textContent = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
                 Value<int> folderId = const Value.absent(),
                 Value<DateTime> savedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -2237,6 +2351,7 @@ class $$SavedIdeasTableTableManager
                 articleTitle: articleTitle,
                 articleUrl: articleUrl,
                 textContent: textContent,
+                imageUrl: imageUrl,
                 folderId: folderId,
                 savedAt: savedAt,
                 rowid: rowid,
@@ -2249,6 +2364,7 @@ class $$SavedIdeasTableTableManager
                 required String articleTitle,
                 required String articleUrl,
                 required String textContent,
+                Value<String?> imageUrl = const Value.absent(),
                 required int folderId,
                 required DateTime savedAt,
                 Value<int> rowid = const Value.absent(),
@@ -2259,6 +2375,7 @@ class $$SavedIdeasTableTableManager
                 articleTitle: articleTitle,
                 articleUrl: articleUrl,
                 textContent: textContent,
+                imageUrl: imageUrl,
                 folderId: folderId,
                 savedAt: savedAt,
                 rowid: rowid,
@@ -2338,6 +2455,7 @@ typedef $$LikedIdeasTableCreateCompanionBuilder =
       required String articleTitle,
       required String articleUrl,
       required String textContent,
+      Value<String?> imageUrl,
       required DateTime likedAt,
       Value<int> rowid,
     });
@@ -2349,6 +2467,7 @@ typedef $$LikedIdeasTableUpdateCompanionBuilder =
       Value<String> articleTitle,
       Value<String> articleUrl,
       Value<String> textContent,
+      Value<String?> imageUrl,
       Value<DateTime> likedAt,
       Value<int> rowid,
     });
@@ -2389,6 +2508,11 @@ class $$LikedIdeasTableFilterComposer
 
   ColumnFilters<String> get textContent => $composableBuilder(
     column: $table.textContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2437,6 +2561,11 @@ class $$LikedIdeasTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get likedAt => $composableBuilder(
     column: $table.likedAt,
     builder: (column) => ColumnOrderings(column),
@@ -2475,6 +2604,9 @@ class $$LikedIdeasTableAnnotationComposer
     column: $table.textContent,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get imageUrl =>
+      $composableBuilder(column: $table.imageUrl, builder: (column) => column);
 
   GeneratedColumn<DateTime> get likedAt =>
       $composableBuilder(column: $table.likedAt, builder: (column) => column);
@@ -2517,6 +2649,7 @@ class $$LikedIdeasTableTableManager
                 Value<String> articleTitle = const Value.absent(),
                 Value<String> articleUrl = const Value.absent(),
                 Value<String> textContent = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
                 Value<DateTime> likedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LikedIdeasCompanion(
@@ -2526,6 +2659,7 @@ class $$LikedIdeasTableTableManager
                 articleTitle: articleTitle,
                 articleUrl: articleUrl,
                 textContent: textContent,
+                imageUrl: imageUrl,
                 likedAt: likedAt,
                 rowid: rowid,
               ),
@@ -2537,6 +2671,7 @@ class $$LikedIdeasTableTableManager
                 required String articleTitle,
                 required String articleUrl,
                 required String textContent,
+                Value<String?> imageUrl = const Value.absent(),
                 required DateTime likedAt,
                 Value<int> rowid = const Value.absent(),
               }) => LikedIdeasCompanion.insert(
@@ -2546,6 +2681,7 @@ class $$LikedIdeasTableTableManager
                 articleTitle: articleTitle,
                 articleUrl: articleUrl,
                 textContent: textContent,
+                imageUrl: imageUrl,
                 likedAt: likedAt,
                 rowid: rowid,
               ),
