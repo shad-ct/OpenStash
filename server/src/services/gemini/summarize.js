@@ -33,8 +33,10 @@ function isTransientGeminiError(err) {
   );
 }
 
-function buildPrompt({ author, title, url, text }) {
+function buildPrompt({ author, title, url, text, images }) {
   const clipped = text.length > 15000 ? text.slice(0, 15000) : text;
+  const imageList = Array.isArray(images) && images.length > 0 ? images : [];
+  
   return [
     'You are an expert news summarizer.',
     'Return ONLY valid JSON. Do not wrap in markdown. Do not include backticks.',
@@ -44,14 +46,16 @@ function buildPrompt({ author, title, url, text }) {
     '  "title": string,',
     '  "url": string,',
     '  "points": [',
-    '    { "heading": string, "bullets"?: string[], "paragraph"?: string }',
+    '    { "heading": string, "bullets"?: string[], "paragraph"?: string, "image"?: string }',
     '  ],',
     '  "categories": string[]',
     '}',
     'Rules:',
-    '- points MUST contain exactly 10 items.',
+    '- points SHOULD contain between 1 and 10 items (maximum 10). Provide the most valuable insights.',
     '- Each point must have a short heading and either (a) 2-5 bullets OR (b) one concise paragraph.',
     '- Bullets must be factual, concise, and derived from the article text.',
+    '- For each point, if one of the provided image URLs is highly relevant, assign it to the "image" field.',
+    '- If no image is relevant for a point, omit the "image" field or set it to null.',
     '- No speculation, no ads, no CTAs.',
     '- Assign one or more categories from the following list that best fit the article:',
     '- Only use categories from this list. If none fit, use "Miscellaneous".',
@@ -66,7 +70,11 @@ function buildPrompt({ author, title, url, text }) {
     `Author: ${author || ''}`,
     `Title: ${title || ''}`,
     `URL: ${url}`,
+    'Available Images:',
+    ...imageList.map((img, i) => `Image ${i + 1}: ${img}`),
+    '',
     'Article text:',
+    clipped,
   ].join('\n');
 }
 
@@ -90,7 +98,7 @@ function safeJsonParse(text) {
 function validateSummaryJson(json) {
   if (!json || typeof json !== 'object') return null;
   if (!json.title || !json.url || !Array.isArray(json.points)) return null;
-  if (json.points.length !== 10) return null;
+  if (json.points.length < 1 || json.points.length > 10) return null;
   for (const p of json.points) {
     if (!p || typeof p.heading !== 'string') return null;
     const hasBullets = Array.isArray(p.bullets) && p.bullets.length > 0;
@@ -107,8 +115,8 @@ async function generateOnce({ modelName, prompt }) {
   return result.response.text();
 }
 
-async function summarizeWithGemini({ author, title, url, text }) {
-  const prompt = buildPrompt({ author, title, url, text });
+async function summarizeWithGemini({ author, title, url, text, images }) {
+  const prompt = buildPrompt({ author, title, url, text, images });
 
   // NOTE: Railway env vars are easy to misconfigure. If a model name is invalid/unsupported
   // (404 / not supported for generateContent), we'll fall through to the next candidate.
@@ -172,14 +180,15 @@ async function summarizeBatchWithGemini(articles) {
     '    "title": string,',
     '    "url": string,',
     '    "points": [',
-    '      { "heading": string, "bullets"?: string[], "paragraph"?: string }',
+    '      { "heading": string, "bullets"?: string[], "paragraph"?: string, "image"?: string }',
     '    ],',
     '    "categories": string[]',
     '  }',
     ']',
     'Rules:',
     '- For each article, output an object matching the schema above.',
-    '- Each object must have exactly 10 points.',
+    '- Each object should have between 1 and 10 points.',
+    '- For each point, if one of the provided images for that article is highly relevant, assign it to the "image" field.',
     '- Assign one or more categories from the provided list for each article.',
     '- Only use categories from this list. If none fit, use "Miscellaneous".',
     '- Category list:',
@@ -196,6 +205,7 @@ async function summarizeBatchWithGemini(articles) {
       `Author: ${a.author || ''}`,
       `Title: ${a.title || ''}`,
       `URL: ${a.url}`,
+      `Available Images: ${(a.images || []).join(', ')}`,
       `Text: ${(a.text && a.text.length > 15000) ? a.text.slice(0, 15000) : a.text}`,
       ''
     ].join('\n')),

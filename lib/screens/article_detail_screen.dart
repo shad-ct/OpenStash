@@ -147,7 +147,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  void _toggleSaved(String ideaId, String text) async {
+  void _toggleSaved(String ideaId, String text, String? imageUrl) async {
     final isSaved = _savedIdeaIds.contains(ideaId);
     if (isSaved) {
       await libraryRepository.removeSavedIdea(ideaId);
@@ -180,6 +180,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         articleTitle: widget.summary.title,
         articleUrl: widget.summary.url,
         textContent: text,
+        imageUrl: imageUrl,
         folderId: selectedFolder.id,
       );
       setState(() {
@@ -196,7 +197,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     }
   }
 
-  void _toggleLiked(String ideaId, String text) async {
+  void _toggleLiked(String ideaId, String text, String? imageUrl) async {
     final isLiked = _likedIdeaIds.contains(ideaId);
     if (isLiked) {
       await libraryRepository.unlikeIdea(ideaId);
@@ -210,6 +211,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         articleTitle: widget.summary.title,
         articleUrl: widget.summary.url,
         textContent: text,
+        imageUrl: imageUrl,
       );
       setState(() {
         _likedIdeaIds.add(ideaId);
@@ -372,8 +374,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                   onShare: () {
                                     Share.share(text);
                                   },
-                                  onToggleSaved: () => _toggleSaved(ideaId, text),
-                                  onToggleLiked: () => _toggleLiked(ideaId, text),
+                                  onToggleSaved: () => _toggleSaved(ideaId, text, point.imageUrl),
+                                  onToggleLiked: () => _toggleLiked(ideaId, text, point.imageUrl),
+                                  imageUrl: point.imageUrl,
                                 ),
                               ),
                             );
@@ -441,8 +444,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           isFullScreen: true,
           onRead: () => _onCardRead(pointIndex),
           onShare: () => Share.share(text),
-          onToggleSaved: () => _toggleSaved(ideaId, text),
-          onToggleLiked: () => _toggleLiked(ideaId, text),
+          onToggleSaved: () => _toggleSaved(ideaId, text, point.imageUrl),
+          onToggleLiked: () => _toggleLiked(ideaId, text, point.imageUrl),
+          imageUrl: point.imageUrl,
         );
       },
     );

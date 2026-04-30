@@ -67,6 +67,7 @@ class SavedIdeas extends Table {
   TextColumn get articleTitle => text()();
   TextColumn get articleUrl => text()();
   TextColumn get textContent => text()();
+  TextColumn get imageUrl => text().nullable()();
   IntColumn get folderId => integer().references(Folders, #id)();
   DateTimeColumn get savedAt => dateTime()();
 
@@ -81,6 +82,7 @@ class LikedIdeas extends Table {
   TextColumn get articleTitle => text()();
   TextColumn get articleUrl => text()();
   TextColumn get textContent => text()();
+  TextColumn get imageUrl => text().nullable()();
   DateTimeColumn get likedAt => dateTime()();
 
   @override

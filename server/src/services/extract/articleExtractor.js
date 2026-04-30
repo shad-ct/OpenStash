@@ -103,14 +103,36 @@ function extractReadableText(html, url) {
   const text = article.textContent.replace(/\s+/g, ' ').trim();
   if (!text) return null;
 
-  const imageUrl =
-    extractMetaImageUrl(document, url) || extractContentImageUrl(article.content, url);
+  // Extract all images from the parsed content
+  const contentImages = [];
+  try {
+    const contentDom = createDom(article.content, url);
+    const contentDoc = contentDom.window.document;
+    const imgs = contentDoc.querySelectorAll('img');
+    for (const img of imgs) {
+      const fromSrcset = pickFromSrcset(img.getAttribute('srcset'));
+      const src = fromSrcset || img.getAttribute('src');
+      const u = normalizeMaybeUrl(src, url);
+      if (u && !contentImages.includes(u)) {
+        contentImages.push(u);
+      }
+      if (contentImages.length >= 10) break;
+    }
+  } catch (e) {
+    console.warn('Failed to extract images from content:', e.message);
+  }
+
+  const metaImageUrl = extractMetaImageUrl(document, url);
+  if (metaImageUrl && !contentImages.includes(metaImageUrl)) {
+    contentImages.unshift(metaImageUrl);
+  }
 
   return {
     title: article.title,
     excerpt: article.excerpt,
     text,
-    imageUrl,
+    imageUrl: contentImages[0], // Main image for the article
+    imageUrls: contentImages.slice(0, 10), // Up to 10 images for cards
   };
 }
 

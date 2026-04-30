@@ -51,6 +51,7 @@ class LibraryRepository {
     required String articleTitle,
     required String articleUrl,
     required String textContent,
+    String? imageUrl,
     required int folderId,
   }) async {
     await _db.into(_db.savedIdeas).insert(
@@ -61,6 +62,7 @@ class LibraryRepository {
         articleTitle: articleTitle,
         articleUrl: articleUrl,
         textContent: textContent,
+        imageUrl: Value(imageUrl),
         folderId: folderId,
         savedAt: DateTime.now(),
       ),
@@ -98,6 +100,7 @@ class LibraryRepository {
     required String articleTitle,
     required String articleUrl,
     required String textContent,
+    String? imageUrl,
   }) async {
     await _db.into(_db.likedIdeas).insert(
       LikedIdeasCompanion.insert(
@@ -107,6 +110,7 @@ class LibraryRepository {
         articleTitle: articleTitle,
         articleUrl: articleUrl,
         textContent: textContent,
+        imageUrl: Value(imageUrl),
         likedAt: DateTime.now(),
       ),
       mode: InsertMode.insertOrReplace,

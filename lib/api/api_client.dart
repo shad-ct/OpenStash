@@ -50,7 +50,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl/api/refresh').replace(
       queryParameters: force ? {'force': 'true'} : null,
     );
-    final res = await _client.post(uri).timeout(const Duration(minutes: 2));
+    final res = await _client.post(uri).timeout(const Duration(minutes: 5));
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw ApiException('Refresh feed failed (${res.statusCode})');
     }

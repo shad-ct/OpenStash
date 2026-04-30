@@ -8,6 +8,7 @@ class Article {
     required this.source,
     required this.reads,
     required this.ideas,
+    this.imageUrl,
   });
 
   final String id;
@@ -16,4 +17,5 @@ class Article {
   final String source;
   final int reads;
   final List<Idea> ideas;
+  final String? imageUrl;
 }

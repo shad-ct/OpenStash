@@ -146,11 +146,13 @@ class SummaryPoint {
     required this.heading,
     required this.bullets,
     required this.paragraph,
+    this.imageUrl,
   });
 
   final String? heading;
   final List<String> bullets;
   final String? paragraph;
+  final String? imageUrl;
 
   factory SummaryPoint.fromJson(Map<String, Object?> json) {
     return SummaryPoint(
@@ -159,6 +161,7 @@ class SummaryPoint {
           .whereType<String>()
           .toList(growable: false),
       paragraph: json['paragraph'] as String?,
+      imageUrl: json['image'] as String?,
     );
   }
 
@@ -167,6 +170,7 @@ class SummaryPoint {
       'heading': heading,
       'bullets': bullets,
       'paragraph': paragraph,
+      'image': imageUrl,
     };
   }
 }

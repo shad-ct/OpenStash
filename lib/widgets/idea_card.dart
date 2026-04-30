@@ -16,6 +16,7 @@ class IdeaCard extends StatefulWidget {
     this.onLongPress,
     this.onRead,
     this.isFullScreen = false,
+    this.imageUrl,
   });
 
   final String text;
@@ -23,6 +24,7 @@ class IdeaCard extends StatefulWidget {
   final bool liked;
   final bool initialRead;
   final bool isFullScreen;
+  final String? imageUrl;
   final VoidCallback onShare;
   final VoidCallback onToggleSaved;
   final VoidCallback onToggleLiked;
@@ -128,9 +130,21 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin,
         border: widget.isFullScreen ? null : Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: widget.isFullScreen ? _buildFullScreen(context) : _buildNormal(context),
+      child: Stack(
+        children: [
+          if (widget.imageUrl != null)
+            Positioned.fill(
+              child: Image.network(
+                widget.imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: widget.isFullScreen ? _buildFullScreen(context) : _buildNormal(context),
+          ),
+        ],
       ),
     );
   }

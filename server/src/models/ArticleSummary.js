@@ -5,6 +5,7 @@ const SummaryPointSchema = new mongoose.Schema(
     heading: { type: String, required: true },
     bullets: { type: [String], default: [] },
     paragraph: { type: String },
+    image: { type: String },
   },
   { _id: false }
 );
@@ -34,6 +35,7 @@ const ArticleSummarySchema = new mongoose.Schema(
       rawText: { type: String },
       wordCount: { type: Number },
       imageUrl: { type: String },
+      imageUrls: { type: [String], default: [] },
     },
 
     summary: {

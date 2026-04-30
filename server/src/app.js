@@ -14,10 +14,15 @@ function createApp() {
     res.json({ ok: true });
   });
 
-  app.post('/api/refresh', (req, res) => {
+  app.post('/api/refresh', async (req, res) => {
     const force = Boolean(req.query.force || req.body?.force);
-    runOnce({ force }).catch(err => console.error('Manual trigger error:', err));
-    res.json({ message: 'Fetch and summarize job triggered via /refresh', force });
+    try {
+      await runOnce({ force });
+      res.json({ message: 'Fetch and summarize job completed', force });
+    } catch (err) {
+      console.error('Manual trigger error:', err);
+      res.status(500).json({ message: 'Job failed', error: err.message });
+    }
   });
 
   app.use('/api/summaries', summariesRouter);

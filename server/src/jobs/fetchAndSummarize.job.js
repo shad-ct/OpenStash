@@ -253,6 +253,7 @@ async function processFeedItem({ feedUrl, feedTitle }, item) {
       rawText,
       wordCount: rawText.split(/\s+/).filter(Boolean).length,
       imageUrl: extracted?.imageUrl,
+      imageUrls: extracted?.imageUrls || [],
     };
     doc.status = 'extracted';
     await withMongoRetry(() => doc.save(), 'save(extracted)');
@@ -265,6 +266,7 @@ async function processFeedItem({ feedUrl, feedTitle }, item) {
       title: extracted?.title || title,
       url: normalizedUrl,
       text: rawText,
+      images: doc.content.imageUrls,
     });
 
     doc.title = summaryJson.title || doc.title;
@@ -276,10 +278,12 @@ async function processFeedItem({ feedUrl, feedTitle }, item) {
           ? p.bullets.map((b) => String(b).trim()).filter(Boolean)
           : [];
         const paragraph = typeof p.paragraph === 'string' ? p.paragraph.trim() : undefined;
+        const image = typeof p.image === 'string' ? p.image.trim() : undefined;
         return {
           heading: String(p.heading).trim(),
           bullets,
           paragraph,
+          image,
         };
       }),
     };
@@ -370,6 +374,7 @@ async function retryExtractedSummaries() {
         title: doc.title,
         url: doc.url,
         text: doc.content?.rawText || '',
+        images: doc.content?.imageUrls || [],
       });
 
       doc.summary = {
@@ -379,7 +384,8 @@ async function retryExtractedSummaries() {
             ? p.bullets.map((b) => String(b).trim()).filter(Boolean)
             : [];
           const paragraph = typeof p.paragraph === 'string' ? p.paragraph.trim() : undefined;
-          return { heading: String(p.heading).trim(), bullets, paragraph };
+          const image = typeof p.image === 'string' ? p.image.trim() : undefined;
+          return { heading: String(p.heading).trim(), bullets, paragraph, image };
         }),
       };
 
@@ -435,17 +441,24 @@ async function runOnce(options = {}) {
       }
     }
 
-    console.log('Starting RSS fetch + summarize job...');
+    console.log(`Starting RSS fetch + summarize job (force=${force})...`);
+    if (!env.RSS_FEED_URLS || env.RSS_FEED_URLS.length === 0) {
+      console.warn('No RSS feed URLs configured.');
+      return { summarizedCount: 0 };
+    }
 
     await retryExtractedSummaries();
 
     const feeds = await fetchAllFeeds(env.RSS_FEED_URLS);
+
+    console.log(`Fetched ${feeds.length} feeds. Processing items...`);
 
     let summarizedThisRun = 0;
     // Collect articles to summarize
     const articlesToSummarize = [];
     const articleDocs = [];
     for (const result of feeds) {
+      if (summarizedThisRun >= env.MAX_SUMMARIES_PER_RUN) break;
       const { feedUrl, feed, error } = result;
       if (error) {
         const msg = String(error?.message || error || '').slice(0, 400);
@@ -497,12 +510,19 @@ async function runOnce(options = {}) {
             rawText,
             wordCount: rawText.split(/\s+/).filter(Boolean).length,
             imageUrl: extracted?.imageUrl,
+            imageUrls: extracted?.imageUrls || [],
           };
           doc.status = 'extracted';
           await withMongoRetry(() => doc.save(), 'save(extracted)');
           doc.status = 'summarizing';
           await withMongoRetry(() => doc.save(), 'save(summarizing)');
-          articlesToSummarize.push({ author, title: extracted?.title || title, url: normalizedUrl, text: rawText });
+          articlesToSummarize.push({ 
+            author, 
+            title: extracted?.title || title, 
+            url: normalizedUrl, 
+            text: rawText,
+            images: doc.content.imageUrls,
+          });
           articleDocs.push(doc);
           summarizedThisRun += 1;
         } catch (err) {
@@ -512,6 +532,13 @@ async function runOnce(options = {}) {
         }
       }
     }
+
+    if (articlesToSummarize.length === 0) {
+      console.log('No new articles to summarize.');
+      return { summarizedCount: 0 };
+    }
+
+    console.log(`Starting batch summarization for ${articlesToSummarize.length} articles...`);
 
     // Batch summarize in chunks of 10
     const { summarizeBatchWithGemini } = require('../services/gemini/summarize');
@@ -530,7 +557,8 @@ async function runOnce(options = {}) {
             points: Array.isArray(summaryJson.points) ? summaryJson.points.map((p) => {
               const bullets = Array.isArray(p.bullets) ? p.bullets.map((b) => String(b).trim()).filter(Boolean) : [];
               const paragraph = typeof p.paragraph === 'string' ? p.paragraph.trim() : undefined;
-              return { heading: String(p.heading).trim(), bullets, paragraph };
+              const image = typeof p.image === 'string' ? p.image.trim() : undefined;
+              return { heading: String(p.heading).trim(), bullets, paragraph, image };
             }) : [],
           };
           doc.categories = getValidCategories(summaryJson.categories);
@@ -543,13 +571,20 @@ async function runOnce(options = {}) {
         }
       } catch (err) {
         console.error('Batch summarize error:', err);
+        // Mark all docs in this batch as failed so they don't stay in 'summarizing'
+        for (const doc of docsBatch) {
+          doc.status = 'failed';
+          doc.errors.push({ stage: 'summarize', message: `Batch error: ${err.message}` });
+          await withMongoRetry(() => doc.save(), 'save(batch-failed)');
+        }
       }
       if (env.GEMINI_MIN_DELAY_MS > 0) {
         await sleep(env.GEMINI_MIN_DELAY_MS);
       }
     }
 
-    console.log('RSS fetch + summarize job complete.');
+    console.log(`RSS fetch + summarize job complete. Total summarized: ${summarizedThisRun}`);
+    return { summarizedCount: summarizedThisRun };
   } catch (err) {
     console.error('Job error:', formatErrorForLog(err));
   } finally {
