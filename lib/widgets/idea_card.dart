@@ -130,22 +130,7 @@ class IdeaCardState extends State<IdeaCard> with SingleTickerProviderStateMixin,
         border: widget.isFullScreen ? null : Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          if (widget.imageUrl != null)
-            Positioned.fill(
-              child: Image.network(
-                widget.imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: widget.isFullScreen ? _buildFullScreen(context) : _buildNormal(context),
-          ),
-        ],
-      ),
+      child: widget.isFullScreen ? _buildFullScreen(context) : _buildNormal(context),
     );
   }
 
@@ -376,6 +361,91 @@ class _IconAction extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         minimumSize: const Size(32, 32),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+}
+
+class InsightImageCard extends StatelessWidget {
+  const InsightImageCard({
+    super.key,
+    required this.imageUrl,
+    this.caption,
+    this.isFullScreen = false,
+  });
+
+  final String imageUrl;
+  final String? caption;
+  final bool isFullScreen;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = Colors.white.withOpacity(0.06);
+    final bg = AppTokens.card.withOpacity(0.6);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isFullScreen ? Colors.black : bg,
+        borderRadius: isFullScreen ? BorderRadius.zero : BorderRadius.circular(AppTokens.r16),
+        border: isFullScreen ? null : Border.all(color: borderColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: isFullScreen ? StackFit.expand : StackFit.loose,
+        children: [
+          if (isFullScreen)
+            Center(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            )
+          else
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTokens.r16)),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+                if (caption != null && caption!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      caption!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white70,
+                            fontStyle: FontStyle.italic,
+                            height: 1.4,
+                          ),
+                    ),
+                  ),
+              ],
+            ),
+          if (isFullScreen)
+             Positioned(
+               bottom: 40,
+               left: 24,
+               right: 24,
+               child: Container(
+                 padding: const EdgeInsets.all(16),
+                 decoration: BoxDecoration(
+                   color: Colors.black54,
+                   borderRadius: BorderRadius.circular(12),
+                 ),
+                 child: Text(
+                   caption ?? 'Image insight',
+                   style: const TextStyle(color: Colors.white, fontSize: 16),
+                 ),
+               ),
+             ),
+        ],
       ),
     );
   }

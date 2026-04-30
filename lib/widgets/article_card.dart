@@ -86,7 +86,7 @@ class ArticleCard extends StatelessWidget {
                           color: Colors.transparent,
                           child: Text(
                             article.title,
-                            maxLines: 3,
+                            maxLines: 4,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w700,

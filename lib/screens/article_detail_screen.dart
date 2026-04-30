@@ -272,12 +272,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         color: Colors.transparent,
                         child: Text(
                           widget.summary.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 height: 1.2,
                                 letterSpacing: -0.8,
+                                fontSize: widget.summary.title.length > 60 ? 22 : null,
                               ),
                         ),
                       ),
@@ -343,112 +342,132 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   Widget _buildNormalInsights(BuildContext context) {
     return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 780),
-                      child: Column(
-                        children: [
-                          ...List.generate(widget.summary.points.length, (index) {
-                            final point = widget.summary.points[index];
-                            final ideaId = '${widget.summary.id}:$index';
-                            final saved = _savedIdeaIds.contains(ideaId);
-                            final liked = _likedIdeaIds.contains(ideaId);
-                            final text = _ideaText(point);
-                            final isRead = _readIdeaIndices.contains(index);
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 780),
+          child: Column(
+            children: [
+              ...List.generate(widget.summary.points.length, (index) {
+                final point = widget.summary.points[index];
+                final ideaId = '${widget.summary.id}:$index';
+                final saved = _savedIdeaIds.contains(ideaId);
+                final liked = _likedIdeaIds.contains(ideaId);
+                final text = _ideaText(point);
+                final isRead = _readIdeaIndices.contains(index);
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: VisibilityDetector(
-                                key: Key(ideaId),
-                                onVisibilityChanged: (info) {
-                                  _updateActiveReading(index, info.visibleFraction);
-                                },
-                                child: IdeaCard(
-                                  key: _cardKeys[index],
-                                  text: text,
-                                  saved: saved,
-                                  liked: liked,
-                                  initialRead: isRead,
-                                  onRead: () => _onCardRead(index),
-                                  onShare: () {
-                                    Share.share(text);
-                                  },
-                                  onToggleSaved: () => _toggleSaved(ideaId, text, point.imageUrl),
-                                  onToggleLiked: () => _toggleLiked(ideaId, text, point.imageUrl),
-                                  imageUrl: point.imageUrl,
-                                ),
-                              ),
-                            );
-                          }),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24.0),
-                            child: ElevatedButton.icon(
-                              onPressed: () => _launchUrl(widget.summary.url),
-                              icon: const Icon(Icons.open_in_new, size: 16),
-                              label: const Text('Read full article'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTokens.accent,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (point.imageUrl != null && point.imageUrl!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: InsightImageCard(
+                          imageUrl: point.imageUrl!,
+                          caption: point.heading,
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: VisibilityDetector(
+                        key: Key(ideaId),
+                        onVisibilityChanged: (info) {
+                          _updateActiveReading(index, info.visibleFraction);
+                        },
+                        child: IdeaCard(
+                          key: _cardKeys[index],
+                          text: text,
+                          saved: saved,
+                          liked: liked,
+                          initialRead: isRead,
+                          onRead: () => _onCardRead(index),
+                          onShare: () => Share.share(text),
+                          onToggleSaved: () => _toggleSaved(ideaId, text, point.imageUrl),
+                          onToggleLiked: () => _toggleLiked(ideaId, text, point.imageUrl),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 );
+              }),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: ElevatedButton.icon(
+                  onPressed: () => _launchUrl(widget.summary.url),
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('Read full article'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTokens.accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildTikTokInsights(BuildContext context) {
+    final items = <Widget>[];
+    items.add(_buildTikTokHeader(context));
+
+    for (int i = 0; i < widget.summary.points.length; i++) {
+      final point = widget.summary.points[i];
+      final ideaId = '${widget.summary.id}:$i';
+      final saved = _savedIdeaIds.contains(ideaId);
+      final liked = _likedIdeaIds.contains(ideaId);
+      final text = _ideaText(point);
+      final isRead = _readIdeaIndices.contains(i);
+
+      if (point.imageUrl != null && point.imageUrl!.isNotEmpty) {
+        items.add(InsightImageCard(
+          imageUrl: point.imageUrl!,
+          caption: point.heading,
+          isFullScreen: true,
+        ));
+      }
+
+      items.add(VisibilityDetector(
+        key: Key('${ideaId}_tiktok'),
+        onVisibilityChanged: (info) {
+          _updateActiveReading(i, info.visibleFraction);
+        },
+        child: IdeaCard(
+          key: _cardKeys[i],
+          text: text,
+          saved: saved,
+          liked: liked,
+          initialRead: isRead,
+          isFullScreen: true,
+          onRead: () => _onCardRead(i),
+          onShare: () => Share.share(text),
+          onToggleSaved: () => _toggleSaved(ideaId, text, point.imageUrl),
+          onToggleLiked: () => _toggleLiked(ideaId, text, point.imageUrl),
+        ),
+      ));
+    }
+
+    items.add(_buildTikTokReadMore(context));
+
     return PageView.builder(
       scrollDirection: Axis.vertical,
-      itemCount: widget.summary.points.length + 2, // +1 for Header, +1 for Read more
+      itemCount: items.length,
       onPageChanged: (index) {
-        if (index > 0 && index <= widget.summary.points.length) {
-          _updateActiveReading(index - 1, 1.0);
-        } else {
-          // Cancel reading for all cards if on header or read more page
+        if (index == 0 || index == items.length - 1) {
+          // Cancel reading if on header or footer
           if (_activeReadingIndex != null) {
             _cardKeys[_activeReadingIndex!].currentState?.cancelReading();
             _activeReadingIndex = null;
           }
         }
       },
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildTikTokHeader(context);
-        }
-        if (index == widget.summary.points.length + 1) {
-          return _buildTikTokReadMore(context);
-        }
-
-        final pointIndex = index - 1;
-        final point = widget.summary.points[pointIndex];
-        final ideaId = '${widget.summary.id}:$pointIndex';
-        final saved = _savedIdeaIds.contains(ideaId);
-        final liked = _likedIdeaIds.contains(ideaId);
-        final text = _ideaText(point);
-        final isRead = _readIdeaIndices.contains(pointIndex);
-
-        return IdeaCard(
-          key: _cardKeys[pointIndex],
-          text: text,
-          saved: saved,
-          liked: liked,
-          initialRead: isRead,
-          isFullScreen: true,
-          onRead: () => _onCardRead(pointIndex),
-          onShare: () => Share.share(text),
-          onToggleSaved: () => _toggleSaved(ideaId, text, point.imageUrl),
-          onToggleLiked: () => _toggleLiked(ideaId, text, point.imageUrl),
-          imageUrl: point.imageUrl,
-        );
-      },
+      itemBuilder: (context, index) => items[index],
     );
   }
 
@@ -489,6 +508,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
                     height: 1.1,
+                    fontSize: widget.summary.title.length > 60 ? 22 : null,
                   ),
             ),
             const SizedBox(height: 20),
