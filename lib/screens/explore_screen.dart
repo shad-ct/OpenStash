@@ -421,64 +421,85 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 },
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
-                                  child: Column(
+                                  child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        article.title,
-                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                          height: 1.3,
-                                          color: Colors.white.withOpacity(0.95),
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.person_outline, size: 14, color: AppTokens.textMuted),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              article.author.isEmpty ? 'Unknown Author' : article.author,
-                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                color: AppTokens.textMuted,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                      if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(right: 16),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Image.network(
+                                              article.imageUrl!,
+                                              width: 80,
+                                              height: 80,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: article.categories
-                                            .map((cat) => Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: isEven 
-                                                    ? AppTokens.accent.withOpacity(0.12)
-                                                    : Colors.white.withOpacity(0.05),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: isEven 
-                                                      ? AppTokens.accent.withOpacity(0.2)
-                                                      : Colors.white.withOpacity(0.08),
-                                                ),
+                                        ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              article.title,
+                                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                                height: 1.3,
+                                                color: Colors.white.withOpacity(0.95),
                                               ),
-                                              child: Text(
-                                                cat,
-                                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                                  fontSize: 10,
-                                                  color: isEven ? AppTokens.accent : AppTokens.textMuted,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.person_outline, size: 14, color: AppTokens.textMuted),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(
+                                                    article.author.isEmpty ? 'Unknown Author' : article.author,
+                                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                      color: AppTokens.textMuted,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
-                                              ),
-                                            ))
-                                            .toList(),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: article.categories
+                                                  .map((cat) => Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: isEven 
+                                                          ? AppTokens.accent.withOpacity(0.12)
+                                                          : Colors.white.withOpacity(0.05),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(
+                                                        color: isEven 
+                                                            ? AppTokens.accent.withOpacity(0.2)
+                                                            : Colors.white.withOpacity(0.08),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      cat,
+                                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                                        fontSize: 10,
+                                                        color: isEven ? AppTokens.accent : AppTokens.textMuted,
+                                                      ),
+                                                    ),
+                                                  ))
+                                                  .toList(),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),

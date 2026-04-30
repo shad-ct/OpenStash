@@ -295,6 +295,7 @@ class FolderScreen extends StatelessWidget {
                 articleTitle: idea.articleTitle,
                 textContent: idea.textContent,
                 articleUrl: idea.articleUrl,
+                imageUrl: idea.imageUrl,
                 onRemove: () => libraryRepository.removeSavedIdea(idea.id),
                 icon: Icons.bookmark_remove,
               );
@@ -333,6 +334,7 @@ class _LikedTab extends StatelessWidget {
               articleTitle: idea.articleTitle,
               textContent: idea.textContent,
               articleUrl: idea.articleUrl,
+              imageUrl: idea.imageUrl,
               onRemove: () => libraryRepository.unlikeIdea(idea.id),
               icon: Icons.favorite_border,
             );
@@ -351,12 +353,14 @@ class _IdeaListItem extends StatelessWidget {
     required this.articleUrl,
     required this.onRemove,
     required this.icon,
+    this.imageUrl,
   });
 
   final String articleId;
   final String articleTitle;
   final String textContent;
   final String articleUrl;
+  final String? imageUrl;
   final VoidCallback onRemove;
   final IconData icon;
 
@@ -394,11 +398,21 @@ class _IdeaListItem extends StatelessWidget {
         border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+      child: Stack(
+        children: [
+          if (imageUrl != null)
+            Positioned.fill(
+              child: Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
